@@ -1057,13 +1057,20 @@ async fn start_kernel_impl(
     let snapshot_dir = options.snapshot_dir.clone();
     // The bounded-await default keys on the bash.completed host handler:
     // one source of truth (the registry the daemon registers the notice in).
-    let bootstrap_code = build_rlm_bootstrap_code(
-        &options.python_skills,
-        options
-            .host_handlers
-            .get(BASH_COMPLETED_REQUEST_TYPE)
-            .is_some(),
-    );
+    // Fork seam: the Bun runtime installs its own `rlm` / `bash` / `mcp`
+    // globals at startup, so its bootstrap cell is a comment marker rather than
+    // Python source. The Python path keeps the upstream pre-import loop.
+    let bootstrap_code = if options.python.is_none() && crate::kernel::bun_runtime::selected() {
+        crate::kernel::bun_runtime::bootstrap_code(&options.python_skills)
+    } else {
+        build_rlm_bootstrap_code(
+            &options.python_skills,
+            options
+                .host_handlers
+                .get(BASH_COMPLETED_REQUEST_TYPE)
+                .is_some(),
+        )
+    };
     let mut env = options.env.clone();
     if let Some(shell_path) = &options.shell_path {
         env.insert(

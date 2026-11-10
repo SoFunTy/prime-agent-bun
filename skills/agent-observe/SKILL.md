@@ -18,14 +18,15 @@ otherwise mutate another session.
 
 Call directly from the kernel:
 
-```python
-children = await rlm.list_subagents()
-child = next((item for item in children if item.active_session_id), None)
-if child is not None:
-    worker = await agent_observe.get_agent(child.session_name)
-    recent = await agent_observe.recent_messages(child.session_name, limit=6)
-    # Deletion is a parent-owned RLM operation, not an observe mutation:
-    await rlm.delete_subagent(child)
+```js
+const children = await rlm.list_subagents();
+const child = children.find((item) => item.active_session_id);
+if (child) {
+  const worker = await agent_observe.get_agent({ target: child.session_name });
+  const recent = await agent_observe.recent_messages({ target: child.session_name, limit: 6 });
+  // Deletion is a parent-owned RLM operation, not an observe mutation:
+  await rlm.delete_subagent(child);
+}
 ```
 
 ## API
@@ -45,11 +46,11 @@ if child is not None:
   `agent_message.send` using its `relationship` plus its `sessionName`, or its
   `sessionId` when the member has no name. For direct children,
   `await rlm.list_subagents()` also exposes parent-owned lifecycle handles.
-- `await agent_observe.get_agent(target)` returns `agent`, where `agent`
+- `await agent_observe.get_agent({ target })` returns `agent`, where `agent`
   contains one agent summary (the same shape as the roster rows, including a
   passive child's row). `target` is resolved like other live-session
   selectors: active id, session id or name, or an unambiguous id suffix.
-- `await agent_observe.recent_messages(target, limit=8, max_chars=800)`
+- `await agent_observe.recent_messages({ target, limit = 8, max_chars = 800 })`
   returns `agent` (the target's summary), `messages` (up to `limit` recent
   bounded previews), the clamped `limit` and `maxChars`, and `truncated`
   (true when older messages exist beyond the returned window). `limit` must be

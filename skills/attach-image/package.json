@@ -1,0 +1,11 @@
+{
+  "name": "attach-image",
+  "private": true,
+  "primeAgent": {
+    "javascript": {
+      "global": "attach_image",
+      "entry": "index.ts"
+    }
+  },
+  "description": "Load on-disk images into the model's context as multimodal attachments."
+}

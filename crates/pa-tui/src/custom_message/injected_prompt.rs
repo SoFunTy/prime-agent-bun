@@ -47,11 +47,11 @@ pub enum InjectedPromptKind {
         kind: Option<String>,
         objective: Option<String>,
     },
-    /// `◆ Restored Python kernel state` / `◆ Started fresh Python
-    /// kernel`.
+    /// `◆ Restored <Bun|Python> kernel state` / `◆ Started fresh
+    /// <Bun|Python> kernel` (the label follows the running kernel).
     KernelRestored { restored: bool },
-    /// `Python skills unavailable · <skill names>` (muted label, dim
-    /// names, no marker glyph), expandable to the full report.
+    /// `<JavaScript|Python> skills unavailable · <skill names>` (muted label,
+    /// dim names, no marker glyph), expandable to the full report.
     PythonSkillsUnavailable { skills: Vec<String> },
 }
 
@@ -133,6 +133,15 @@ pub(crate) fn render_injected_prompt(
     out
 }
 
+/// The language whose skill modules the unavailable-skills notice names.
+fn skill_language_label() -> &'static str {
+    if pa_types::kernel_runtime::selected() {
+        "JavaScript"
+    } else {
+        "Python"
+    }
+}
+
 fn prompt_header(row: &InjectedPromptRow, theme: &Theme) -> Line {
     let muted = theme.fg_style(ThemeColor::Muted);
     let dim = theme.fg_style(ThemeColor::Dim);
@@ -156,26 +165,36 @@ fn prompt_header(row: &InjectedPromptRow, theme: &Theme) -> Line {
             }
             spans
         }
-        InjectedPromptKind::KernelRestored { restored } => vec![
-            Span::styled("\u{25c6}".to_string(), accent),
-            Span::raw(" "),
-            Span::styled(
-                if *restored {
-                    "Restored Python kernel state"
-                } else {
-                    "Started fresh Python kernel"
-                }
-                .to_string(),
-                muted,
-            ),
-        ],
+        InjectedPromptKind::KernelRestored { restored } => {
+            let kernel = pa_types::kernel_runtime::cell_label();
+            vec![
+                Span::styled("\u{25c6}".to_string(), accent),
+                Span::raw(" "),
+                Span::styled(
+                    if *restored {
+                        format!("Restored {kernel} kernel state")
+                    } else {
+                        format!("Started fresh {kernel} kernel")
+                    },
+                    muted,
+                ),
+            ]
+        }
         InjectedPromptKind::PythonSkillsUnavailable { skills } => {
-            let mut spans = vec![Span::styled("Python skills unavailable".to_string(), muted)];
+            let label = format!("{} skills unavailable", skill_language_label());
+            let mut spans = vec![Span::styled(label.clone(), muted)];
             if !skills.is_empty() {
                 // TS `truncateToWidth(skills.join(", "),
-                // max(20, 90 - "Python skills unavailable · ".length))` = 62.
+                // max(20, 90 - "<label> · ".length))`; the label follows the
+                // kernel, so the budget is computed rather than pinned.
+                let budget = 90usize
+                    .saturating_sub(label.chars().count() + " \u{b7} ".chars().count())
+                    .max(20);
                 spans.push(Span::styled(
-                    format!(" \u{b7} {}", truncate_text(&skills.join(", "), 62, "...")),
+                    format!(
+                        " \u{b7} {}",
+                        truncate_text(&skills.join(", "), budget, "...")
+                    ),
                     dim,
                 ));
             }

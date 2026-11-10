@@ -11,7 +11,11 @@ factory entry — harness kind `factory`, written with
 a subagent spec, plus guarded transitions between them. The spec validates
 at write time (machine form, or `dag` sugar that compiles to one; pass
 exactly one), and an invalid spec is never stored.
-`await rlm.factory.run('<spec_id>')` then spawns each state's subagent as an
+**Not available on this runtime.** The factory executor is not ported to the Bun
+kernel: `await rlm.factory.run("...")` raises with that explanation, and factory
+work needs the Python runtime. The rest of this reference documents the design.
+
+`await rlm.factory.run("<spec_id>")` then spawns each state's subagent as an
 ordinary child, feeds captured outputs into the successors' prompts, and
 drives the run to quiescence in a background kernel task — the call
 returns immediately and the run continues after the model turn ends. Use

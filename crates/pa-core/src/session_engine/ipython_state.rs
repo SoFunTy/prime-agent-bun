@@ -167,10 +167,12 @@ pub fn notice_content(pruned: Option<&[String]>, names: Option<&[String]>) -> St
         ),
         _ => String::new(),
     };
+    let words = crate::kernel::vocabulary::dictionary();
     format!(
         "[python-state]
 
-Your Python kernel persisted through compaction; its remaining variables, imports, and helpers are still available.{pruned_detail}{detail}"
+{}{pruned_detail}{detail}",
+        words.compaction_persisted
     )
 }
 

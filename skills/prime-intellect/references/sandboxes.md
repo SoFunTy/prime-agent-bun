@@ -39,6 +39,16 @@ Custom images: build and push your own via Prime Images (`sandboxes/images.md`).
 
 `prime_sandboxes` ships `SandboxClient` (sync) and `AsyncSandboxClient` (async) with identical methods:
 
+From this kernel (Bun), drive sandboxes through their REST API with `fetch`, or
+run the Python SDK through `bash()` in the project's own environment:
+
+```js
+const created = await bash(
+  `prime sandbox create python:3.11-slim --timeout-minutes 120 --json`,
+);
+const sandbox = JSON.parse(created.output);
+```
+
 ```python
 from prime_sandboxes import SandboxClient, CreateSandboxRequest, APIClient
 

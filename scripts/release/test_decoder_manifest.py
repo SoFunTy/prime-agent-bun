@@ -32,9 +32,12 @@ class DecoderManifest(unittest.TestCase):
             root = Path(tmp)
             repo = root / "repo"
             repo.mkdir()
-            for directory in ("prime-agent-runtime", "skills"):
+            for directory in ("prime-agent-runtime", "prime-agent-bun-runtime", "skills"):
                 (repo / directory).mkdir()
             (repo / "prime-agent-runtime/pyproject.toml").write_text("[project]\nname = 'fixture'\nversion = '0.1.0'\n")
+            (repo / "prime-agent-bun-runtime/src").mkdir()
+            (repo / "prime-agent-bun-runtime/package.json").write_text('{"name":"prime-agent-bun-runtime"}\n')
+            (repo / "prime-agent-bun-runtime/src/repl.ts").write_text("// repl\n")
             (repo / "LICENSE").write_text("fixture\n")
             (repo / "README.md").write_text("fixture\n")
             catalog = root / "catalog"

@@ -167,6 +167,11 @@ class SyntheticRepo:
         (kernel / "src" / "rlm").mkdir(parents=True)
         (kernel / "pyproject.toml").write_text("[project]\nname='rlm'\n")
         (kernel / "src" / "rlm" / "repl.py").write_text("# repl\n")
+        # The Bun kernel runtime tree package_release.py stages beside it.
+        bun_kernel = root / "prime-agent-bun-runtime"
+        (bun_kernel / "src").mkdir(parents=True)
+        (bun_kernel / "package.json").write_text('{"name":"prime-agent-bun-runtime"}\n')
+        (bun_kernel / "src" / "repl.ts").write_text("// repl\n")
         printed = version if sha is None else f"{version}-continuous.{sha}"
         (runtime / "src" / "repl.py").write_text("# repl\n")
         source = root / "prime-agent.c"

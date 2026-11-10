@@ -296,6 +296,7 @@ pub struct Settings {
     /// (default [`DEFAULT_PYTHON_CELL_TIMEOUT_MS`]; `0` disables). A cell
     /// running longer is interrupted; the model can pass a per-call
     /// `timeout` instead. Daemonless sessions never arm it.
+    #[serde(alias = "javascriptCellTimeoutMs")]
     pub python_cell_timeout_ms: Option<u64>,
     pub autonomous: Option<AutonomousSettings>,
     /// Custom shell that runs every kernel `bash()` and user-bash command as

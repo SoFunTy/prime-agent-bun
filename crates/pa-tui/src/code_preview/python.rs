@@ -465,8 +465,23 @@ pub fn preview_python_code(code: &str) -> CodePreview {
     CodePreview::python(String::new())
 }
 
+/// Preview a cell the Python scanner has nothing to say about — a Bun/JavaScript
+/// cell, or any unparseable source: the first non-empty lines, verbatim.
+///
+/// Without this, a Bun session's collapsed cell card would render no code at all
+/// (the Python scanner returns empty text for JavaScript).
+#[must_use]
+pub fn preview_unparsed_kernel_cell(code: &str, max_lines: usize) -> CodePreview {
+    let lines: Vec<&str> = code
+        .lines()
+        .map(js_trim)
+        .filter(|line| !line.is_empty())
+        .take(max_lines)
+        .collect();
+    CodePreview::python(lines.join("\n"))
+}
+
 /// Preview an ipython cell: %%bash cells preview as bash, the rest as python.
-#[cfg_attr(not(test), allow(dead_code))]
 #[must_use]
 pub fn preview_ipython_code(code: &str) -> CodePreview {
     let trimmed = js_trim_end(code);
@@ -474,4 +489,23 @@ pub fn preview_ipython_code(code: &str) -> CodePreview {
         return preview_bash_command(&cell.body);
     }
     preview_python_code(trimmed)
+}
+
+#[cfg(test)]
+mod unparsed_cell_tests {
+    use super::*;
+
+    /// A JavaScript cell has no Python statement for the scanner to pick, so the
+    /// card falls back to the code's own first lines.
+    #[test]
+    fn a_javascript_cell_previews_its_own_first_lines() {
+        let code = "const rows = await api.list();\n\nconsole.log(rows.length);\nreturn rows;";
+        let preview = preview_unparsed_kernel_cell(code, 3);
+        assert_eq!(
+            preview.text,
+            "const rows = await api.list();\nconsole.log(rows.length);\nreturn rows;"
+        );
+        assert!(preview_unparsed_kernel_cell("   \n\t\n", 3).text.is_empty());
+        assert_eq!(preview_unparsed_kernel_cell("a\nb\nc\nd", 2).text, "a\nb");
+    }
 }

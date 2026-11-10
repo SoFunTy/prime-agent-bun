@@ -5,6 +5,7 @@
 //! `prime-agent-runtime/src/rlm/repl.md` (protocol version 3).
 
 pub mod bootstrap;
+pub mod bun_runtime;
 pub mod cancellation;
 pub mod live_kernels;
 pub mod manager;
@@ -14,6 +15,7 @@ pub mod provisioner;
 pub mod rlm_runtime;
 pub mod shared;
 pub mod state_snapshot;
+pub mod vocabulary;
 
 pub use bootstrap::{
     build_rlm_bootstrap_code, ensure_kernel_python, kernel_venv_dir, EnsureKernelPythonOptions,
@@ -30,8 +32,8 @@ pub use rlm_runtime::{
 };
 pub use shared::{
     HostRequestHandler, HostRequestHandlers, HostRequestPayload, KernelBusyAfterInterruptError,
-    KernelDiffDisplay, KernelManagerOptions, KernelSentAgentMessage, KernelShutdownOptions,
-    KernelSnapshotConfig, StreamName, EXECUTE_STATUS_ABORTED, EXECUTE_STATUS_ERROR,
-    EXECUTE_STATUS_OK,
+    KernelDiffDisplay, KernelLauncher, KernelManagerOptions, KernelSentAgentMessage,
+    KernelShutdownOptions, KernelSnapshotConfig, StreamName, EXECUTE_STATUS_ABORTED,
+    EXECUTE_STATUS_ERROR, EXECUTE_STATUS_OK,
 };
 pub use state_snapshot::{manifest_path_in, snapshot_path_in, RestoreResult, SnapshotResult};

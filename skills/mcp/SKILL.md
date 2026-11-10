@@ -1,24 +1,24 @@
 ---
 name: mcp
-description: Use external MCP services generically from Python - search the supported-service catalog, inspect the user's connections, discover live tool schemas, and call tools on any connection (Notion, Linear, Slack, and the rest of the catalog) without per-service packages.
+description: Use external MCP services generically from the kernel - search the supported-service catalog, inspect the user's connections, discover live tool schemas, and call tools on any connection (Notion, Linear, Slack, and the rest of the catalog) without per-service packages.
 ---
 
 # MCP Services
 
-Every external service reachable over MCP uses the same pre-imported `mcp`
-module. Adding a service is data (a catalog entry plus a user login), never a
-new Python package, and there are no per-service skills to read.
+Every external service reachable over MCP uses the same `mcp` global. Adding a
+service is data (a catalog entry plus a user login), never a new package, and
+there are no per-service skills to read.
 
 ## Inventory: what can I use?
 
-```python
-# Supported catalog, one bounded page. More pages exist while nextCursor is not None.
-page = await mcp.list_plugins(connection_status="not_connected", limit=50)
-results = await mcp.search_plugins("notion")          # bounded search
-page = await mcp.list_plugins()                       # default: first 50 entries
+```js
+// Supported catalog, one bounded page. More pages exist while nextCursor is not null.
+const page = await mcp.list_plugins({ connection_status: "not_connected", limit: 50 });
+const results = await mcp.search_plugins("notion");   // bounded search
+const firstPage = await mcp.list_plugins();           // default: first 50 entries
 
-# The user's actual connections. connectionId is the dispatch id everywhere below.
-connections = await mcp.list_connections()
+// The user's actual connections. connectionId is the dispatch id everywhere below.
+const connections = await mcp.list_connections();
 ```
 
 Catalog entries carry `connectionStatus` (`connected`, `pending`,
@@ -43,13 +43,13 @@ the next call without a reload.
 
 ## Discover, then call
 
-```python
-# Live tool metadata is cached per connection; schemas come from the server.
-tools = await mcp.search_tools("search workspace documents", connection_id="notion")
-tool = await mcp.describe_tool("notion", "notion-search")   # {name, description, inputSchema}
-tools = await mcp.list_tools("notion")                     # full tool list with schemas
+```js
+// Live tool metadata is cached per connection; schemas come from the server.
+const tools = await mcp.search_tools("search workspace documents", 10);
+const tool = await mcp.describe_tool("notion", "notion-search"); // {name, description, inputSchema}
+const all = await mcp.list_tools("notion");                      // full tool list with schemas
 
-result = await mcp.call_tool("notion", "notion-search", {"query": "roadmap"})
+const result = await mcp.call_tool("notion", "notion-search", { query: "roadmap" });
 ```
 
 - Discover before calling: don't assume tool names or arguments; read the
@@ -63,31 +63,31 @@ result = await mcp.call_tool("notion", "notion-search", {"query": "roadmap"})
   result never claims to be exhaustive).
 - Prefer narrow catalog searches over paging the whole catalog; don't dump all
   schemas into context.
-- Results are already-parsed Python (a `dict` for structured output, otherwise
-  a string). No `json.loads` needed.
+- Results are already parsed (an object for structured output, otherwise a
+  string). No `JSON.parse` needed.
 
 ## Large or integrity-critical payloads
 
 `mcp.call_tool` runs the MCP client session inside this kernel. Arguments go
-from Python straight to the server and never pass through model output or the
-daemon; results enter context only if you print them. For bulk writes or data
+from code straight to the server and never pass through model output or the
+daemon; results enter context only if you log them. For bulk writes or data
 that must stay exact (financial figures, generated rows), keep the payload in
 code:
 
-```python
-import hashlib, json
-from pathlib import Path
+```js
+import { createHash } from "node:crypto";
+import { readFileSync, writeFileSync } from "node:fs";
 
-src = Path("/tmp/updates.json")              # written by code, never typed by the model
-args = json.loads(src.read_text())
-result = await mcp.call_tool("sheets", "update_spreadsheet", args)
-Path("/tmp/updates.result.json").write_text(json.dumps(result))
-print(len(args["requests"]), hashlib.sha256(src.read_bytes()).hexdigest()[:12])
+const src = "/tmp/updates.json";             // written by code, never typed by the model
+const args = JSON.parse(readFileSync(src, "utf8"));
+const result = await mcp.call_tool("sheets", "update_spreadsheet", args);
+writeFileSync("/tmp/updates.result.json", JSON.stringify(result));
+console.log(args.requests.length, createHash("sha256").update(readFileSync(src)).digest("hex").slice(0, 12));
 ```
 
-- Build or load arguments with code (`json.load`, a dataframe, a generator).
+- Build or load arguments with code (`JSON.parse`, a map, a generator).
   Never paste a payload into a cell or ask the model to retype one.
-- Write results to a file and check them in Python (counts, hashes, a readback
+- Write results to a file and check them in code (counts, hashes, a readback
   compared field by field). Print the summary, not the payload.
 - Each call times out after 60 s by default. For large writes, raise
   `callTimeoutMs` in that server's `mcpServers` entry.

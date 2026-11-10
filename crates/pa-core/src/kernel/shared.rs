@@ -30,6 +30,9 @@ pub const KERNEL_ABORT_GRACE_MS: u64 = 1_000;
 pub const KERNEL_BUSY_REUSE_WAIT_MS: u64 = 5_000;
 pub const KERNEL_BUSY_INTERRUPT_INTERVAL_MS: u64 = 500;
 pub const MAX_LATE_SENT_AGENT_MESSAGE_HANDLERS: usize = 256;
+/// The Python-era wording, kept for callers that need a `'static` string. The
+/// model-facing path uses [`crate::kernel::vocabulary`] so a Bun session is not
+/// told it runs a Python kernel.
 pub const KERNEL_BUSY_AFTER_INTERRUPT_MESSAGE: &str = "The Python kernel is still running the previously interrupted cell. Wait and try again, or kill the kernel to start fresh.";
 
 /// Cap for unattributed background output buffered between and during cells.
@@ -254,9 +257,16 @@ pub struct ExecuteOptions {
 
 /// The error raised when a new cell cannot start because the previously
 /// interrupted cell is still running.
-#[derive(Debug, thiserror::Error)]
-#[error("{KERNEL_BUSY_AFTER_INTERRUPT_MESSAGE}")]
+#[derive(Debug)]
 pub struct KernelBusyAfterInterruptError;
+
+impl std::fmt::Display for KernelBusyAfterInterruptError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(crate::kernel::vocabulary::dictionary().busy_after_interrupt)
+    }
+}
+
+impl std::error::Error for KernelBusyAfterInterruptError {}
 
 /// A typed request from Python code running in the kernel to the host.
 #[derive(Debug, Clone)]
@@ -352,6 +362,22 @@ pub struct KernelSnapshotConfig {
     pub max_variable_bytes: Option<u64>,
     /// Debounce window for the auto-snapshot after a successful execution. Default 1500 ms.
     pub debounce_ms: Option<u64>,
+}
+
+/// Explicit kernel process launch.
+///
+/// The upstream default is `python -m rlm.repl`; this fork can start an
+/// alternative runtime (the Bun kernel) that speaks the same REPL protocol v3.
+/// The launcher carries the resolved program and argv so the manager stays
+/// runtime-agnostic.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KernelLauncher {
+    /// Executable to spawn.
+    pub program: std::path::PathBuf,
+    /// Arguments after the program.
+    pub args: Vec<String>,
+    /// Human label for startup diagnostics ("Python" / "Bun").
+    pub label: String,
 }
 
 /// Options for constructing a [`ReplKernelManager`].

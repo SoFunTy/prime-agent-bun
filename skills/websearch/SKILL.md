@@ -23,8 +23,9 @@ Optional overrides (environment variables):
 
 ## Usage
 
-Call the prepared `websearch` import directly in the Python kernel:
+Call the prepared `websearch` global directly in the kernel:
 
-```python
-print(await websearch("latest Prime Agent release"))
+```js
+await websearch({ query: "latest Prime Agent release" });
+await websearch({ query: "bun shell api", num_results: 8 });
 ```

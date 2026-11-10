@@ -5,6 +5,7 @@ use super::*;
 use crate::session_engine::tool_bridge::{bridge_tool, ToolDefinitionBridge};
 use crate::tools::tool_definition::{ExecutionMode, ToolDefinition, ToolExecutionResult};
 use pa_agent::scripted::ScriptedProvider;
+use pa_types::ai::PYTHON_TOOL_NAME;
 
 /// Exercise the startup gate without starting a session or a configured process.
 #[tokio::test]

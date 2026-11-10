@@ -114,6 +114,9 @@ class ContinuousFixture:
         (runtime / "src" / "rlm" / "repl.py").write_text("# fixture REPL\n")
         (root / "prime-agent-runtime").mkdir()
         (root / "prime-agent-runtime" / "pyproject.toml").write_text("[project]\nname='rlm'\n")
+        (root / "prime-agent-bun-runtime" / "src").mkdir(parents=True)
+        (root / "prime-agent-bun-runtime" / "package.json").write_text('{"name":"prime-agent-bun-runtime"}\n')
+        (root / "prime-agent-bun-runtime" / "src" / "repl.ts").write_text("// repl\n")
 
         source = root / "resolver.c"
         source.write_text(VERSION_RESOLVER_C % version)

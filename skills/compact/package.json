@@ -1,0 +1,11 @@
+{
+  "name": "compact",
+  "private": true,
+  "primeAgent": {
+    "javascript": {
+      "global": "compact",
+      "entry": "index.ts"
+    }
+  },
+  "description": "Prime Agent compact skill: context compaction control from the kernel."
+}

@@ -1,0 +1,11 @@
+{
+  "name": "edit",
+  "private": true,
+  "primeAgent": {
+    "javascript": {
+      "global": "edit",
+      "entry": "index.ts"
+    }
+  },
+  "description": "Replace an exact, unique string in an existing file."
+}

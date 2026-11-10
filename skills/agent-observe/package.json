@@ -1,0 +1,11 @@
+{
+  "name": "agent-observe",
+  "private": true,
+  "primeAgent": {
+    "javascript": {
+      "global": "agent_observe",
+      "entry": "index.ts"
+    }
+  },
+  "description": "Read-only Prime Agent session observation skill."
+}

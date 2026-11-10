@@ -12,16 +12,17 @@ to include a `from` field.
 
 Call directly from the kernel:
 
-```python
-children = await rlm.list_subagents()
-child = next((item for item in children if item.active_session_id), None)
-if child is not None:
-    receipt = await agent_message.send(
-        "Please inspect the latest result.",
-        receiver_role="child",
-        receiver_name=child.session_name,
-    )
-    # Keep the child until this follow-up finishes so its result remains observable.
+```js
+const children = await rlm.list_subagents();
+const child = children.find((item) => item.active_session_id);
+if (child) {
+  const receipt = await agent_message({
+    message: "Please inspect the latest result.",
+    receiver_role: "child",
+    receiver_name: child.session_name,
+  });
+  // Keep the child until this follow-up finishes so its result remains observable.
+}
 ```
 
 ## API
@@ -30,14 +31,14 @@ if child is not None:
   lists the parent, siblings, and children this skill can reach, active or not,
   with the `relationship` and `sessionName` that `send` takes as
   `receiver_role` and `receiver_name`.
-- `await agent_message.send(message, receiver_role="parent" | "sibling" | "child", receiver_name=None)` — sends one direct
+- `await agent_message({ message, receiver_role, receiver_name })` — sends one direct
   text message to one family member. Sending to an inactive or idle completed
   subagent wakes it and starts an ordinary follow-up turn in that same session
   and context.
   The child remains available only until its parent session closes. The daemon
   resolves `receiver_role` within the current agent family; `receiver_name` is
   required for siblings and children and omitted for the unique parent.
-  `send("all", message)` broadcasts only to the family roster and returns
+  `await agent_message({ broadcast_message })` broadcasts only to the family roster and returns
   `{receipts: [...]}` in roster order; successful entries are ordinary receipts
   and failed entries contain the target id and a short `error`. One failed delivery
   does not reject successful deliveries. Messages always use steering delivery so
@@ -55,6 +56,6 @@ if child is not None:
   `await rlm.delete_subagent(child)`.
 - Reach is limited to parent, siblings, and direct children; relay through an
   intermediate child instead of messaging grandchildren or cousins directly.
-- Sender identity is daemon-derived and cannot be spoofed from Python.
+- Sender identity is daemon-derived and cannot be spoofed from the kernel.
 - The daemon enforces message size, rate, and pending-queue limits before
   accepting delivery.

@@ -11,6 +11,7 @@ pub mod compaction;
 pub mod daemon;
 pub mod goal;
 pub mod incident;
+pub mod kernel_runtime;
 pub mod memory_release;
 pub mod platform;
 pub mod session;

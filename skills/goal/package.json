@@ -1,0 +1,11 @@
+{
+  "name": "goal",
+  "private": true,
+  "primeAgent": {
+    "javascript": {
+      "global": "goal",
+      "entry": "index.ts"
+    }
+  },
+  "description": "Prime Agent goal skill: manage the persistent thread goal from the kernel."
+}

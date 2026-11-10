@@ -49,6 +49,7 @@ from assemble_artifacts import (
 EXPECTED_TOP_LEVEL = {
     "prime-agent",
     "prime-agent-runtime",
+    "prime-agent-bun-runtime",
     "skills",
     "LICENSE",
     "README.md",
@@ -130,7 +131,9 @@ def main() -> int:
                 f"!= designed payload {sorted(expected_top_level)}"
             )
         for member in members:
-            if member.name.startswith(("skills/", "prime-agent-runtime/")) and any(
+            if member.name.startswith(
+                ("skills/", "prime-agent-runtime/", "prime-agent-bun-runtime/")
+            ) and any(
                 part in RUNTIME_EXCLUDED_NAMES or part.endswith(RUNTIME_EXCLUDED_SUFFIXES)
                 for part in Path(member.name).parts
             ):

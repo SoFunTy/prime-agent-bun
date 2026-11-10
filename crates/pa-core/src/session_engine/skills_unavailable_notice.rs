@@ -19,17 +19,14 @@ fn now_millis() -> u64 {
 /// per-skill import errors, and the fix hint.
 #[must_use]
 pub fn notice_content(errors: &UnavailablePythonSkills) -> String {
+    let words = crate::kernel::vocabulary::dictionary();
     let mut lines = vec!["[python-skills-unavailable]".to_string(), String::new()];
-    lines.push(
-        "These installed Python skill modules failed to import into the Python kernel, so calling them raises an error:".to_string(),
-    );
+    lines.push(words.skills_unavailable_lead.to_string());
     for (name, error) in errors {
         lines.push(format!("- {name}: {error}"));
     }
     lines.push(String::new());
-    lines.push(
-        "Their shell command forms fail the same way. Fix the import error first (for example install the missing dependency with `uv pip install <pkg>` or reinstall the skill into the kernel venv), or use another approach.".to_string(),
-    );
+    lines.push(words.skills_fix_hint.to_string());
     lines.join("\n")
 }
 

@@ -11,7 +11,8 @@ platform alias).
 Usage:
     python3 scripts/release/assemble_artifacts.py \
         --repo-root <repo> --version <x.y.z> --target <triple> \
-        [--binary <path>] [--runtime-dir <dir>] [--out-dir <dir>] [--sha <commit>] \
+        [--binary <path>] [--runtime-dir <dir>] [--bun-runtime-dir <dir>] \
+        [--out-dir <dir>] [--sha <commit>] \
         [--catalog-assets <dir>]
 
 `--catalog-assets` is the directory holding the generated bundled catalog
@@ -73,6 +74,7 @@ BINARY_PLACEHOLDER = "prime-agent"
 STAGED_ENTRIES = [
     BINARY_PLACEHOLDER,
     "prime-agent-runtime",
+    "prime-agent-bun-runtime",
     "skills",
     "LICENSE",
     "README.md",
@@ -204,6 +206,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--decoder", type=Path, default=None,
                         help="separate Linux .debug.gz sidecar from split_debug.py")
     parser.add_argument("--runtime-dir", type=Path, default=None)
+    parser.add_argument("--bun-runtime-dir", type=Path, default=None,
+                        help="Bun kernel sidecar (default: <repo>/prime-agent-bun-runtime)")
     parser.add_argument("--out-dir", type=Path, default=None)
     parser.add_argument("--sha", default=None,
                         help="full commit SHA to stamp into the binary's "
@@ -285,9 +289,11 @@ def stage_tree(staging: Path, args: argparse.Namespace, stamped_version: str | N
     binary_name = binary_name_for_target(args.target)
     binary = resolve_binary(args)
     runtime_dir = args.runtime_dir or (args.repo_root / "prime-agent-runtime")
+    bun_runtime_dir = args.bun_runtime_dir or (args.repo_root / "prime-agent-bun-runtime")
     sources = {
         binary_name: binary,
         "prime-agent-runtime": runtime_dir,
+        "prime-agent-bun-runtime": bun_runtime_dir,
         "skills": args.repo_root / "skills",
         "LICENSE": args.repo_root / "LICENSE",
         "README.md": args.repo_root / "README.md",
@@ -298,6 +304,12 @@ def stage_tree(staging: Path, args: argparse.Namespace, stamped_version: str | N
             f"{runtime_dir} (expected prime-agent-runtime with pyproject.toml); "
             "pass --runtime-dir or merge the kernel-packaging lane"
         )
+    if not bun_runtime_dir.joinpath("src", "repl.ts").is_file():
+        fail(
+            "Bun kernel runtime sidecar not found at "
+            f"{bun_runtime_dir} (expected prime-agent-bun-runtime with src/repl.ts); "
+            "pass --bun-runtime-dir or merge the kernel-packaging lane"
+        )
     for name, source in sources.items():
         target_path = staging / name
         if not source.exists():
@@ -305,6 +317,12 @@ def stage_tree(staging: Path, args: argparse.Namespace, stamped_version: str | N
         if source.is_dir():
             if name == "prime-agent-runtime":
                 copy_runtime_tree(source, target_path)
+            elif name == "prime-agent-bun-runtime":
+                shutil.copytree(source, target_path, ignore=lambda _directory, names: {
+                    entry for entry in names
+                    if entry in RUNTIME_EXCLUDED_NAMES
+                    or entry.endswith(RUNTIME_EXCLUDED_SUFFIXES)
+                })
             elif name == "skills":
                 shutil.copytree(source, target_path, ignore=lambda _directory, names: {
                     entry for entry in names

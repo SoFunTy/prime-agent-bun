@@ -1,0 +1,17 @@
+{
+  "name": "prime-agent-bun-runtime",
+  "version": "0.1.0",
+  "description": "Bun-side RLM kernel runtime for Prime Agent (REPL runtime protocol v3)",
+  "type": "module",
+  "module": "src/index.ts",
+  "bin": {
+    "prime-agent-bun-kernel": "src/repl.ts"
+  },
+  "scripts": {
+    "start": "bun run src/repl.ts",
+    "verify": "bash ../test/run-all.sh"
+  },
+  "engines": {
+    "bun": ">=1.3.14"
+  }
+}

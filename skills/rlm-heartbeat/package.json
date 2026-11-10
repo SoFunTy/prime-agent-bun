@@ -1,0 +1,11 @@
+{
+  "name": "rlm-heartbeat",
+  "private": true,
+  "primeAgent": {
+    "javascript": {
+      "global": "rlm_heartbeat",
+      "entry": "index.ts"
+    }
+  },
+  "description": "Prime Agent RLM heartbeat skill: internal recurring session checks."
+}

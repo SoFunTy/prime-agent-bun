@@ -21,10 +21,10 @@ For *programmatic* work on an image — measuring pixels, cropping, resizing,
 computing a hash, comparing files byte-by-byte — open it in the kernel with a
 library instead:
 
-```python
-from PIL import Image
-img = Image.open("diagram.png")
-print(img.size)
+```js
+const bytes = new Uint8Array(await Bun.file("diagram.png").arrayBuffer());
+const image = new Bun.Image(bytes);
+console.log(image.width, image.height);
 ```
 
 That path does not put the image in the model's context; it only lets you
@@ -32,11 +32,11 @@ compute over it. Use `attach_image` when you need to *see* the image.
 
 ## Usage
 
-Call the prepared `attach_image` import directly in the Python kernel:
+Call the prepared `attach_image` global directly in the kernel:
 
-```python
-print(await attach_image("diagram.png"))
-print(await attach_image("a.png", "b.jpg"))
+```js
+await attach_image({ paths: ["diagram.png"] });
+await attach_image({ paths: ["a.png", "b.jpg"] });
 ```
 
 The skill automatically resizes and compresses large images before loading them

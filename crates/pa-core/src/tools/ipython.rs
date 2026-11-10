@@ -216,16 +216,24 @@ pub const BUSY_KERNEL_WAIT_CHOICE: &str = "Wait and preserve state";
 pub const BUSY_KERNEL_KILL_CHOICE: &str = "Kill kernel and restart";
 
 pub fn busy_kernel_prompt() -> String {
+    let words = crate::kernel::vocabulary::dictionary();
     [
-        "Interrupted Python cell is still running",
+        words.busy_prompt_head,
         "Ctrl+C sent an interrupt, but the previous cell has not stopped yet. A new command cannot start until it finishes.",
-        "Waiting preserves the current kernel state. Killing restarts the kernel and loses in-memory variables, imports, and running tasks.",
+        words.busy_prompt_kill,
     ]
     .join("\n")
 }
 
-pub fn kernel_restart_notice() -> &'static str {
-    "<ipython_kernel_reset>\nThe Python kernel was restarted after a previous interrupted cell kept running. Variables, imports, async tasks, and open resources from before the restart are no longer available; recreate them before using them.\n</ipython_kernel_reset>"
+/// The reset banner's tag is a preserved identifier (clients and tests match it);
+/// only the prose follows the running kernel.
+#[must_use]
+pub fn kernel_restart_notice() -> String {
+    let words = crate::kernel::vocabulary::dictionary();
+    format!(
+        "<ipython_kernel_reset>\nThe {} was restarted after a previous interrupted cell kept running. {}\n</ipython_kernel_reset>",
+        words.kernel, words.restart_loss
+    )
 }
 
 /// The UI surface the ipython tool needs from the host session (the TS tool context).
@@ -292,13 +300,14 @@ fn format_execute_text(
 
 /// The model-facing cause and fix for a cell interrupted at its time limit.
 fn cell_timeout_message(limit_ms: u64, kernel_restarted: bool) -> String {
+    let words = crate::kernel::vocabulary::dictionary();
     let mut message = format!(
-        "This cell was interrupted after {}: long blocking work stops the session. Make it \
-non-blocking: start the work as a task (`task = asyncio.create_task(...)`; wrap blocking libraries \
-with `asyncio.to_thread`) and check `task.done()` / `task.result()` in later cells. Run shell \
+        "This cell was interrupted after {}: long blocking work stops the session. {} Run shell \
 commands with `bash()`. A cell that legitimately needs longer can pass a larger `timeout` (max \
-{PYTHON_REPL_TIMEOUT_MAX_S} s), but long work belongs in tasks.",
-        humanize_ms(limit_ms)
+{PYTHON_REPL_TIMEOUT_MAX_S} s), {}",
+        humanize_ms(limit_ms),
+        words.timeout_hint,
+        words.timeout_tail
     );
     if kernel_restarted {
         message.push_str(" The cell did not stop on the interrupt, so the kernel was restarted.");
@@ -377,10 +386,14 @@ async fn execute_with_busy_kernel_choice(
                     .await;
                 match choice.as_deref() {
                     Some(BUSY_KERNEL_WAIT_CHOICE) => {
-                        on_working_message(Some("Waiting for Python kernel..."));
+                        on_working_message(Some(
+                            crate::kernel::vocabulary::dictionary().working_wait,
+                        ));
                     }
                     Some(BUSY_KERNEL_KILL_CHOICE) => {
-                        on_working_message(Some("Restarting Python kernel..."));
+                        on_working_message(Some(
+                            crate::kernel::vocabulary::dictionary().working_restart,
+                        ));
                         provisioner.kill().await;
                         kernel_restarted = true;
                     }
@@ -406,7 +419,7 @@ pub fn ipython_tool_schema() -> serde_json::Value {
         "properties": {
             "code": {
                 "type": "string",
-                "description": "Python code to execute in the persistent Python REPL. Use the target project's own environment for project imports, tests, scripts, CLIs, and dependency checks instead of direct kernel imports."
+                "description": crate::kernel::vocabulary::dictionary().tool_code_help,
             },
             "timeout": {
                 "type": "integer",
@@ -429,8 +442,13 @@ fn timeout_arg_ms(params: &serde_json::Value) -> Option<u64> {
     Some((seconds as u64).clamp(1, PYTHON_REPL_TIMEOUT_MAX_S) * 1000)
 }
 
-pub fn ipython_tool_description() -> &'static str {
-    "Execute Python code in a persistent Python REPL. Top-level `await` is supported. Variables, imports, and loaded data persist across calls, and are revived on a best-effort basis when a session is resumed (objects that cannot be serialized are dropped and reported). Run shell commands with `bash('cmd')` / `await bash('cmd')`. Project imports, tests, scripts, CLIs, and dependency checks should run through the target project's own environment."
+/// The tool description the model reads. The tool name and the description both
+/// follow the running kernel (`bun_repl` on Bun, `python_repl` on Python).
+#[must_use]
+pub fn ipython_tool_description() -> String {
+    crate::kernel::vocabulary::dictionary()
+        .tool_description
+        .to_string()
 }
 
 #[tracing::instrument(
@@ -617,7 +635,12 @@ pub fn create_ipython_tool_definition(_cwd: &str, options: IpythonToolOptions) -
                 let code = params
                     .get("code")
                     .and_then(serde_json::Value::as_str)
-                    .ok_or_else(|| anyhow::anyhow!("python_repl tool requires a code string"))?
+                    .ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "{} tool requires a code string",
+                            pa_types::ai::kernel_tool_name()
+                        )
+                    })?
                     .to_string();
                 execute_ipython(
                     &options,
@@ -632,12 +655,12 @@ pub fn create_ipython_tool_definition(_cwd: &str, options: IpythonToolOptions) -
         })
     };
     ToolDefinition {
-        name: pa_types::ai::PYTHON_TOOL_NAME.to_string(),
-        label: pa_types::ai::PYTHON_TOOL_NAME.to_string(),
-        description: ipython_tool_description().to_string(),
-        prompt_snippet:
-            "python_repl - persistent Python REPL for code, state, and bash() orchestration"
-                .to_string(),
+        name: pa_types::ai::kernel_tool_name().to_string(),
+        label: pa_types::ai::kernel_tool_name().to_string(),
+        description: ipython_tool_description(),
+        prompt_snippet: crate::kernel::vocabulary::dictionary()
+            .tool_prompt_snippet
+            .to_string(),
         // The kernel is single-threaded; calls must not run in parallel.
         execution_mode: Some(ExecutionMode::Sequential),
         parameters: ipython_tool_schema(),
@@ -649,6 +672,55 @@ pub fn create_ipython_tool_definition(_cwd: &str, options: IpythonToolOptions) -
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A stub provisioner: this test only builds the definition.
+    struct NeverRuns;
+
+    impl IpythonKernelProvisioner for NeverRuns {
+        fn ensure(
+            &self,
+            _on_progress: Option<BootstrapProgressHandler>,
+            _signal: Option<AbortSignal>,
+        ) -> Pin<Box<dyn Future<Output = anyhow::Result<Box<dyn KernelExecutor>>> + Send>> {
+            Box::pin(async { Err(anyhow::anyhow!("not used")) })
+        }
+
+        fn kill(&self) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+            Box::pin(async {})
+        }
+    }
+
+    fn definition() -> ToolDefinition {
+        create_ipython_tool_definition(
+            "/w",
+            IpythonToolOptions {
+                provisioner: Arc::new(NeverRuns),
+                ui: None,
+                on_late_sent_agent_message: None,
+            },
+        )
+    }
+
+    /// The tool name, label, text, and schema always come from the runtime
+    /// selection, so a Bun session can never present a Python REPL.
+    #[test]
+    fn the_tool_definition_follows_the_runtime_vocabulary() {
+        let definition = definition();
+        let words = crate::kernel::vocabulary::dictionary();
+        assert_eq!(definition.name, pa_types::ai::kernel_tool_name());
+        assert_eq!(definition.label, pa_types::ai::kernel_tool_name());
+        assert_eq!(definition.description, words.tool_description);
+        assert_eq!(definition.prompt_snippet, words.tool_prompt_snippet);
+        assert_eq!(
+            definition.parameters["properties"]["code"]["description"],
+            serde_json::Value::String(words.tool_code_help.to_string())
+        );
+        assert_eq!(definition.parameters["required"][0], "code");
+        assert_eq!(
+            definition.execution_mode,
+            Some(crate::tools::tool_definition::ExecutionMode::Sequential)
+        );
+    }
 
     #[test]
     fn timeout_arg_is_clamped_to_the_allowed_range() {

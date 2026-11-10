@@ -27,6 +27,10 @@ class NativeCompatibilityTests(unittest.TestCase):
         (runtime / "src/rlm").mkdir(parents=True)
         (runtime / "src/rlm/repl.py").write_text("# runtime fixture\n")
         (runtime / "pyproject.toml").write_text('[project]\nname = "fixture"\n')
+        bun_runtime = self.root / "prime-agent-bun-runtime"
+        (bun_runtime / "src").mkdir(parents=True)
+        (bun_runtime / "package.json").write_text('{"name":"prime-agent-bun-runtime"}\n')
+        (bun_runtime / "src/repl.ts").write_text("// repl fixture\n")
         for name in BUNDLED_CATALOG_FILES:
             (self.root / name).write_text("{}\n")
         self.binary = self.root / "binary"
@@ -38,7 +42,8 @@ class NativeCompatibilityTests(unittest.TestCase):
         staging.mkdir()
         args = argparse.Namespace(
             repo_root=self.root, target=target, binary=self.binary,
-            runtime_dir=None, catalog_assets=self.root, version="1.0.0", sha="a" * 40,
+            runtime_dir=None, bun_runtime_dir=None, catalog_assets=self.root,
+            version="1.0.0", sha="a" * 40,
         )
         # Catalog validation has its own integration suite; this test exercises
         # packaging with a minimal payload to isolate the migration regression.

@@ -97,6 +97,7 @@ REQUIRED_TREE_ENTRIES = (
     "crates",
     "vendor",
     "prime-agent-runtime",
+    "prime-agent-bun-runtime",
     "skills",
     "LICENSE",
     "README.md",

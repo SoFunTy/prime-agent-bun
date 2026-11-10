@@ -116,6 +116,6 @@ Each cell's `effectiveValue` carries `numberValue`, `stringValue`, or
 
 For large or exact payloads, follow the "Large or integrity-critical payloads"
 section of the `mcp` skill (`skills/mcp/SKILL.md`): load the arguments from a
-file in the Python kernel, write results to a file, and verify them in code.
+file in the kernel, write results to a file, and verify them in code.
 
 Disconnect with `/mcp logout google-drive` (or `google-sheets`).

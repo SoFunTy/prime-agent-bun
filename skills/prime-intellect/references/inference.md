@@ -26,6 +26,20 @@ Eval runs against Prime Inference models report estimated USD cost automatically
 
 Base URL: `https://api.pinference.ai/api/v1`
 
+From this kernel (Bun) the same call is plain `fetch`:
+
+```js
+const response = await fetch("https://api.pinference.ai/api/v1/chat/completions", {
+  method: "POST",
+  headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.PRIME_API_KEY}` },
+  body: JSON.stringify({
+    model: "meta-llama/llama-3.1-70b-instruct",
+    messages: [{ role: "user", content: "hello" }],
+  }),
+});
+const payload = await response.json();
+```
+
 ```python
 import openai, os
 

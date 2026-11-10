@@ -1,0 +1,11 @@
+{
+  "name": "websearch",
+  "private": true,
+  "primeAgent": {
+    "javascript": {
+      "global": "websearch",
+      "entry": "index.ts"
+    }
+  },
+  "description": "Google web search via Serper."
+}

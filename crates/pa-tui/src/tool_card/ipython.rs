@@ -20,8 +20,8 @@ use super::layout::RowOutput;
 use super::{highlight, ToolCallCard};
 use crate::chat::Detail;
 use crate::code_preview::{
-    parse_ipython_bash_cell, preview_bash_command, preview_ipython_code, python_statement_lines,
-    CodePreviewLanguage,
+    parse_ipython_bash_cell, preview_bash_command, preview_ipython_code,
+    preview_unparsed_kernel_cell, python_statement_lines, CodePreviewLanguage,
 };
 use crate::custom_message::AgentMessageDirection;
 use crate::error_summary::{normalize_error_details, summarize_error_details};
@@ -238,15 +238,23 @@ fn collapsed_line(
     let bash_mode = theme.fg_style(ThemeColor::BashMode);
 
     let dominant = dominant_bash(details, code);
-    let preview = preview_ipython_code(code);
+    let mut preview = preview_ipython_code(code);
+    // A Bun kernel's cells are JavaScript: the Python scanner finds no
+    // statement to show, so fall back to the code's own first lines.
+    if preview.text.is_empty() && pa_types::kernel_runtime::selected() && !code.trim().is_empty() {
+        preview = preview_unparsed_kernel_cell(code, 3);
+    }
     let is_bash_cell = parse_ipython_bash_cell(code).is_some();
+    // The kernel language follows this process's kernel selection: a Bun session
+    // labels its cells JavaScript, not Python.
+    let kernel_language = pa_types::kernel_runtime::language();
     let language_label = if dominant.is_some() {
         "bash".to_string()
     } else {
         match (is_bash_cell, &preview.language) {
-            (true, CodePreviewLanguage::Python) => "bash \u{00b7} python".to_string(),
+            (true, CodePreviewLanguage::Python) => format!("bash \u{00b7} {kernel_language}"),
             (true | false, CodePreviewLanguage::Bash) => "bash".to_string(),
-            (false, CodePreviewLanguage::Python) => "python".to_string(),
+            (false, CodePreviewLanguage::Python) => kernel_language.to_string(),
         }
     };
 

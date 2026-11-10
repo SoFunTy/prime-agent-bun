@@ -1,0 +1,11 @@
+{
+  "name": "refine",
+  "private": true,
+  "primeAgent": {
+    "javascript": {
+      "global": "refine",
+      "entry": "index.ts"
+    }
+  },
+  "description": "Prime Agent refine skill: continual harness refinement from the kernel."
+}

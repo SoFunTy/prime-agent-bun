@@ -144,8 +144,8 @@ pub fn wire_updates(event: &Value, state: &mut WireMappingState) -> Vec<AcpSessi
             } else {
                 None
             };
-            let title = if pa_types::ai::is_python_tool_name(&tool_name) {
-                "Python cell".to_string()
+            let title = if pa_types::ai::is_kernel_tool_name(&tool_name) {
+                format!("{} cell", pa_types::kernel_runtime::cell_label())
             } else {
                 tool_name.clone()
             };

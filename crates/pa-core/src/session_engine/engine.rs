@@ -8,7 +8,7 @@ use std::sync::Arc;
 use pa_agent::agent::{Agent, AgentInitialState, AgentOptions};
 use pa_agent::stream::StreamFn;
 use pa_agent::types::{Model, ThinkingLevel};
-use pa_types::ai::PYTHON_TOOL_NAME;
+use pa_types::ai::kernel_tool_name;
 
 use crate::resources::{load_resources, ResourceLoaderOptions};
 use crate::session::manager::SessionManager;
@@ -515,7 +515,7 @@ pub async fn create_session(mut config: SessionEngineConfig) -> anyhow::Result<S
         on_bootstrap_result,
     );
     let mut tools = config.tools.clone();
-    if !tools.iter().any(|tool| tool.name() == PYTHON_TOOL_NAME) {
+    if !tools.iter().any(|tool| tool.name() == kernel_tool_name()) {
         let definition = crate::tools::ipython::create_ipython_tool_definition(
             &cwd.to_string_lossy(),
             super::runtime_wiring::ipython_tool_options(
@@ -536,7 +536,7 @@ pub async fn create_session(mut config: SessionEngineConfig) -> anyhow::Result<S
     if (prewarm_configured || has_snapshot)
         && active_tool_names
             .iter()
-            .any(|name| name == PYTHON_TOOL_NAME)
+            .any(|name| name == kernel_tool_name())
     {
         provisioner.prewarm();
         // The MCP settle rides the same background posture (the
@@ -621,7 +621,7 @@ pub async fn create_session(mut config: SessionEngineConfig) -> anyhow::Result<S
         local_dir: local_harness_dir,
         include_ipython: active_tool_names
             .iter()
-            .any(|name| name == PYTHON_TOOL_NAME),
+            .any(|name| name == kernel_tool_name()),
         include_shell_examples: active_tool_names.iter().any(|name| name == "bash"),
         include_refine: model_visible_skills.iter().any(|skill| {
             !skill.disable_model_invocation

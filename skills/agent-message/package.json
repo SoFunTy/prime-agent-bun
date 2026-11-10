@@ -1,0 +1,11 @@
+{
+  "name": "agent-message",
+  "private": true,
+  "primeAgent": {
+    "javascript": {
+      "global": "agent_message",
+      "entry": "index.ts"
+    }
+  },
+  "description": "Prime Agent session-to-session messaging skill."
+}

@@ -116,9 +116,9 @@ fn assemble_breakdown(
                 .map(|file| (file.path.display().to_string(), file.content.clone()))
                 .collect(),
             skills: resources.skills.clone(),
-            // The shipped model-tool surface: `python_repl` only; bash/edit are kernel-resident
-            // programmatic tools.
-            selected_tools: Some(vec![pa_types::ai::PYTHON_TOOL_NAME]),
+            // The shipped model-tool surface: the kernel tool (`bun_repl`, or `python_repl` on
+            // the Python runtime) only; bash/edit are kernel-resident programmatic tools.
+            selected_tools: Some(vec![pa_types::ai::kernel_tool_name()]),
             allow_recursion: Some(true),
             generic_mcp_servers: generic_servers,
             rlm_depth: Some(0),

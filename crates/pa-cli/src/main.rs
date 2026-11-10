@@ -12,6 +12,11 @@ fn main() {
     if args.first().map(String::as_str) != Some("worker") {
         pa_daemon::worker::strip_inherited_worker_env();
     }
+    // The fork's product runtime: this binary always runs the Bun kernel, with
+    // no Python fallback. Applied here, at the composition root, so pa-core's
+    // own default stays upstream's Python runtime and the library test surface
+    // is unchanged.
+    pa_core::kernel::bun_runtime::apply_product_default();
     let code = pa_cli::main_with_runtime(&args, &pa_cli::PrintRuntime);
     // Restore the Windows VT bit before process exit.
     pa_types::platform::console_restore();

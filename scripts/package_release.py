@@ -97,11 +97,16 @@ REQUIRED_FILES = (
     "mcp-services.bundled.json",
     "prime-agent-runtime/pyproject.toml",
     "prime-agent-runtime/src/rlm/repl.py",
+    # The Bun kernel runtime sidecar (the fork's protocol-v3 runtime). It ships
+    # beside the binary exactly like the Python sidecar so either kernel can be
+    # selected from the same installed tree.
+    "prime-agent-bun-runtime/package.json",
+    "prime-agent-bun-runtime/src/repl.ts",
 )
-REQUIRED_DIRS = ("prime-agent-runtime/src/rlm", "skills")
+REQUIRED_DIRS = ("prime-agent-runtime/src/rlm", "prime-agent-bun-runtime/src", "skills")
 
 # Tree assets copied with the exclusion filter; everything else is a single file.
-TREE_ASSETS = ("prime-agent-runtime", "skills")
+TREE_ASSETS = ("prime-agent-runtime", "prime-agent-bun-runtime", "skills")
 
 
 def parse_args(argv):

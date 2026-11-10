@@ -137,6 +137,15 @@ pub fn system_prompt_breakdown(options: &BuildSystemPromptOptions) -> SystemProm
                 layers::layer_source("opinionated").unwrap_or_default(),
                 layers::OPINIONATED_LAYER.trim().to_string(),
             ));
+            if let Some((name, source, text)) =
+                layers::runtime_layer(crate::kernel::bun_runtime::selected())
+            {
+                segments.push(PromptSegment::static_segment(
+                    name,
+                    source,
+                    text.trim().to_string(),
+                ));
+            }
             if let Some(extras) = options.model_prompt_extras {
                 segments.push(PromptSegment::static_segment(
                     "model-prompts",
@@ -158,8 +167,8 @@ pub fn system_prompt_breakdown(options: &BuildSystemPromptOptions) -> SystemProm
     let tools: Vec<&str> = options
         .selected_tools
         .clone()
-        .unwrap_or_else(|| vec![pa_types::ai::PYTHON_TOOL_NAME]);
-    let has_ipython = tools.contains(&pa_types::ai::PYTHON_TOOL_NAME);
+        .unwrap_or_else(|| vec![pa_types::ai::kernel_tool_name()]);
+    let has_ipython = tools.contains(&pa_types::ai::kernel_tool_name());
     let has_file_access = has_ipython || tools.contains(&"bash");
 
     segments.push(PromptSegment::dynamic_segment(
@@ -241,6 +250,15 @@ pub fn system_prompt_breakdown(options: &BuildSystemPromptOptions) -> SystemProm
 
 fn packages_section() -> String {
     use crate::kernel::bootstrap::default_rlm_extra_import_labels;
+    // The Bun kernel has no Python at all, so promising a venv and its
+    // pre-installed packages would be wrong in every session.
+    if crate::kernel::bun_runtime::selected() {
+        return [
+            "Kernel runtime: Bun (JavaScript/TypeScript). This kernel has no Python interpreter and no pre-installed Python packages.",
+            "Extra packages for kernel work can be installed into the kernel package directory with `bun add`; the standard library, `fetch`, and Bun's built-ins need no installation.",
+        ]
+        .join("\n");
+    }
     let mut lines = vec![format!(
         "Pre-installed Python packages: {}.",
         default_rlm_extra_import_labels().join(", ")
@@ -314,12 +332,14 @@ fn session_role_section(options: &BuildSystemPromptOptions, has_ipython: bool) -
                 .to_string(),
         );
         lines.push(
-            "Do not run long blocking work in a cell; start long Python work as an asyncio task and check on it in later cells."
+            crate::kernel::vocabulary::dictionary()
+                .no_long_blocking
                 .to_string(),
         );
     } else {
         lines.push(
-            "This session has no Python REPL (`python_repl` tool): the programmatic tools described above are unavailable here."
+            crate::kernel::vocabulary::dictionary()
+                .no_kernel_tool
                 .to_string(),
         );
     }
@@ -383,7 +403,9 @@ fn format_generic_mcp_guidance(servers: &[String]) -> String {
     let mut lines = vec![
         "# Generic MCP Connections".to_string(),
         String::new(),
-        "Generic MCP connections are accessed through the pre-imported Python `mcp` object in the Python REPL, not as top-level native tool namespaces or installed Python skills.".to_string(),
+        crate::kernel::vocabulary::dictionary()
+            .generic_mcp_lead
+            .to_string(),
         format!(
             "Enabled generic MCP servers: {}.",
             enabled

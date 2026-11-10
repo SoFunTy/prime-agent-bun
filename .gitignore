@@ -10,3 +10,8 @@ fmt-*.log
 tests-*.log
 test-compile-*.log
 
+# local agent/tool state (never commit)
+/.opa/
+/.commandcode/
+node_modules/
+

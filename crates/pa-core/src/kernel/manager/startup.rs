@@ -140,20 +140,45 @@ impl Inner {
         // kernel that is still booting.
         live_kernels::add(self);
 
-        let python = match self.resolve_python(options).await {
-            Ok(python) => python,
-            Err(error) => {
-                if self.start_stale(self.current_generation()) {
-                    // Never touch a newer start's state.
+        // Fork seam: the configured Bun runtime replaces the Python interpreter
+        // (and its venv bootstrap) with an explicit launch descriptor. `None`
+        // keeps the upstream `python -m rlm.repl` path byte for byte.
+        let launcher = if self.options.python.is_none() && crate::kernel::bun_runtime::selected() {
+            match crate::kernel::bun_runtime::launcher() {
+                Ok(launcher) => Some(launcher),
+                Err(error) => {
+                    live_kernels::remove(self);
+                    let mut g = lock(&self.guarded);
+                    if g.state != KernelState::Shutdown {
+                        g.state = KernelState::Idle;
+                    }
                     return Err(error);
                 }
-                live_kernels::remove(self);
-                let mut g = lock(&self.guarded);
-                if g.state != KernelState::Shutdown {
-                    g.state = KernelState::Idle;
-                }
-                return Err(error);
             }
+        } else {
+            None
+        };
+        let program = match &launcher {
+            Some(launcher) => launcher.program.clone(),
+            None => match self.resolve_python(options).await {
+                Ok(python) => python,
+                Err(error) => {
+                    if self.start_stale(self.current_generation()) {
+                        // Never touch a newer start's state.
+                        return Err(error);
+                    }
+                    live_kernels::remove(self);
+                    let mut g = lock(&self.guarded);
+                    if g.state != KernelState::Shutdown {
+                        g.state = KernelState::Idle;
+                    }
+                    return Err(error);
+                }
+            },
+        };
+        let args: Vec<String> = match &launcher {
+            Some(launcher) => launcher.args.clone(),
+            None => vec!["-m".to_string(), "rlm.repl".to_string()],
         };
         let generation = self.current_generation();
         if self.start_stale(generation) {
@@ -165,9 +190,9 @@ impl Inner {
 
         let env = kernel_spawn_env(&self.options.env);
         let cwd = self.options.cwd.clone();
-        let mut command = tokio::process::Command::new(&python);
+        let mut command = tokio::process::Command::new(&program);
         command
-            .args(["-m", "rlm.repl"])
+            .args(&args)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped());
@@ -196,8 +221,8 @@ impl Inner {
                 }
                 self.cleanup_resources(Signal::Term);
                 return Err(anyhow!(
-                    "failed to spawn kernel python {}: {error}",
-                    python.display()
+                    "failed to spawn kernel runtime {}: {error}",
+                    program.display()
                 ));
             }
         };

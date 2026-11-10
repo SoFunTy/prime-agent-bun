@@ -250,7 +250,36 @@ pub struct ImageContent {
     pub rest: JsonMap,
 }
 
+/// The kernel tool's name on the upstream Python runtime.
 pub const PYTHON_TOOL_NAME: &str = "python_repl";
+
+/// The kernel tool's name on the Bun runtime.
+pub const BUN_TOOL_NAME: &str = "bun_repl";
+
+/// The kernel tool's name for the selection this process runs.
+///
+/// The kernel is the model's REPL, so its name has to match the language the
+/// cells are written in. `pa-cli` selects the Bun runtime by default, which is
+/// what makes the shipped product expose `bun_repl`.
+#[must_use]
+pub fn kernel_tool_name() -> &'static str {
+    if crate::kernel_runtime::selected() {
+        BUN_TOOL_NAME
+    } else {
+        PYTHON_TOOL_NAME
+    }
+}
+
+/// Whether `name` addresses the kernel tool, including the short aliases models
+/// reach for and the other runtime's spelling (a session resumed under a
+/// different kernel keeps dispatching its recorded tool calls).
+#[must_use]
+pub fn is_kernel_tool_name(name: &str) -> bool {
+    matches!(
+        name,
+        PYTHON_TOOL_NAME | BUN_TOOL_NAME | "python" | "ipython" | "bun" | "javascript" | "js"
+    )
+}
 
 #[must_use]
 pub fn is_python_tool_name(name: &str) -> bool {
@@ -791,3 +820,29 @@ pub fn supports_fast_mode(model: &Model) -> bool {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod kernel_tool_name_tests {
+    use super::*;
+
+    #[test]
+    fn the_short_aliases_and_both_spellings_dispatch() {
+        for name in [
+            PYTHON_TOOL_NAME,
+            BUN_TOOL_NAME,
+            "python",
+            "ipython",
+            "bun",
+            "javascript",
+            "js",
+        ] {
+            assert!(
+                is_kernel_tool_name(name),
+                "{name} addresses the kernel tool"
+            );
+        }
+        for name in ["bash", "edit", "read", ""] {
+            assert!(!is_kernel_tool_name(name), "{name} is not the kernel tool");
+        }
+    }
+}

@@ -547,8 +547,9 @@ pub fn format_top_level_help() -> String {
             )
         })
         .collect();
+    let runtime = pa_core::kernel::vocabulary::dictionary().runtime;
     format!(
-        "{APP_NAME} - AI coding assistant with a Python REPL tool\n\
+        "{APP_NAME} - AI coding assistant with a {runtime} kernel tool\n\
          \n\
          Usage:\n\
          \x20 {APP_NAME} [options] [@files...] [message...]\n\
