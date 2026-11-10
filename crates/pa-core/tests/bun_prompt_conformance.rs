@@ -120,6 +120,18 @@ fn the_model_facing_surface_follows_the_kernel_runtime() {
     // The dynamic tail is entirely fork-owned: no Python claim may survive.
     assert_no_python_claim("the Bun prompt's dynamic tail", &dynamic_tail("bun_repl"));
 
+    // A user-supplied replacement prompt never hides the runtime contract.
+    let custom = BuildSystemPromptOptions {
+        custom_prompt: Some("CUSTOM PERSONA SENTINEL".to_string()),
+        ..prompt_options("bun_repl")
+    };
+    let custom_prompt = build_system_prompt(&custom);
+    assert!(custom_prompt.contains("CUSTOM PERSONA SENTINEL"));
+    assert!(
+        custom_prompt.contains("Kernel runtime: Bun"),
+        "the Bun contract must survive a custom system prompt"
+    );
+
     // The Python default keeps every upstream spelling.
     std::env::remove_var("PRIME_AGENT_KERNEL_RUNTIME");
     std::env::remove_var("PRIME_AGENT_KERNEL_BUN");
@@ -133,6 +145,14 @@ fn the_model_facing_surface_follows_the_kernel_runtime() {
     assert!(
         !python.contains("Kernel runtime: Bun"),
         "the kernel-bun layer must not appear without the Bun runtime"
+    );
+    let python_custom = BuildSystemPromptOptions {
+        custom_prompt: Some("CUSTOM PERSONA SENTINEL".to_string()),
+        ..prompt_options("python_repl")
+    };
+    assert!(
+        !build_system_prompt(&python_custom).contains("Kernel runtime: Bun"),
+        "a custom prompt changes nothing on the Python runtime"
     );
     let python_words = vocabulary::dictionary();
     assert_eq!(python_words.runtime, "Python");

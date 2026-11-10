@@ -113,15 +113,19 @@ pub fn system_prompt_breakdown(options: &BuildSystemPromptOptions) -> SystemProm
     let mut segments: Vec<PromptSegment> = Vec::new();
 
     // The static prefix: the user's replacement prompt, or the layered files.
-    match options.custom_prompt.as_deref() {
-        Some(custom) if !custom.is_empty() => {
+    let custom = options
+        .custom_prompt
+        .as_deref()
+        .filter(|custom| !custom.is_empty());
+    match custom {
+        Some(custom) => {
             segments.push(PromptSegment::static_segment(
                 "custom",
                 "--system-prompt",
                 custom.to_string(),
             ));
         }
-        _ => {
+        None => {
             segments.push(PromptSegment::static_segment(
                 "core",
                 layers::layer_source("core").unwrap_or_default(),
@@ -137,22 +141,26 @@ pub fn system_prompt_breakdown(options: &BuildSystemPromptOptions) -> SystemProm
                 layers::layer_source("opinionated").unwrap_or_default(),
                 layers::OPINIONATED_LAYER.trim().to_string(),
             ));
-            if let Some((name, source, text)) =
-                layers::runtime_layer(crate::kernel::bun_runtime::selected())
-            {
-                segments.push(PromptSegment::static_segment(
-                    name,
-                    source,
-                    text.trim().to_string(),
-                ));
-            }
-            if let Some(extras) = options.model_prompt_extras {
-                segments.push(PromptSegment::static_segment(
-                    "model-prompts",
-                    layers::layer_source("model-prompts").unwrap_or_default(),
-                    extras.to_string(),
-                ));
-            }
+        }
+    }
+    // The runtime contract is a fact about the running process, not a style
+    // choice: it stays even when the user replaces the harness prompt.
+    if let Some((name, source, text)) =
+        layers::runtime_layer(crate::kernel::bun_runtime::selected())
+    {
+        segments.push(PromptSegment::static_segment(
+            name,
+            source,
+            text.trim().to_string(),
+        ));
+    }
+    if custom.is_none() {
+        if let Some(extras) = options.model_prompt_extras {
+            segments.push(PromptSegment::static_segment(
+                "model-prompts",
+                layers::layer_source("model-prompts").unwrap_or_default(),
+                extras.to_string(),
+            ));
         }
     }
     let cached_prefix_len = segments

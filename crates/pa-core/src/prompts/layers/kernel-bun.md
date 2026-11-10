@@ -4,8 +4,8 @@ This session's kernel tool is **`bun_repl`**: a persistent **Bun** REPL that
 executes **JavaScript / TypeScript**. There is no Python in this process, no
 `python_repl` tool, and no Python packages.
 
-Everything below is authoritative for this session. The general prompt's
-descriptions were written for the upstream Python kernel; where they disagree
+Everything below is authoritative for this session. When the upstream harness
+description is present, it was written for the Python kernel: where it disagrees
 with this layer, this layer wins, and the mapping table at the end translates the
 Python spellings you may still see there.
 
@@ -135,8 +135,8 @@ reported. Keep long-lived state as plain data, or re-derive it on resume.
 
 ## Translating the general prompt
 
-The prompt sections above this layer were written for the Python kernel. Read
-them with these substitutions:
+If the prompt above is the upstream harness description (it is written for the
+Python kernel), read it with these substitutions:
 
 | General prompt says | In this session |
 | --- | --- |
