@@ -1,137 +1,115 @@
-# Kernel performance: Bun vs Python
+# 会话记录分析：Bun 内核 vs Python 内核
 
-Measured on the same machine (darwin-arm64, Apple silicon), same host, same
-REPL protocol v3. Two sources:
+数据来源：本机 `~/.prime/agent/sessions/*.jsonl`（真实会话，非合成基准）。
+分析脚本：`python3 scripts/fork/kernel_session_stats.py`
 
-1. **Controlled benchmark** (`test/bench/kernel-bench.ts`) — identical
-   workload, each cell written in its runtime's idiomatic form, results
-   asserted so a failing cell cannot look fast. This is the authoritative
-   comparison.
-2. **Real session records** (`~/.prime/agent/sessions`) — what the two kernels
-   actually did in this user's sessions. Useful for context, not for an
-   apples-to-apples speed claim: the workloads differ.
+## 0. 结论先行
 
-## TL;DR
+1. **真实会话里，看不到内核替换带来的提速。** 唯一同口径的切片（相同 bash 命令）
+   是 Python 中位 29.0ms vs Bun 31.5ms，差异在噪声内；真实耗时由命令本身和模型延迟
+   决定，内核那层是毫秒级。
+2. **反算全语料**：按分类耗时差的上界估算，8,700 个 Python 单元格总共能省
+   **不到 10 秒**；匹配到相同命令的那部分节省约为 0。
+3. **会话记录里真正发生的提速在别处**：旧 daemon（0.10.1）+ 系统代理时期，
+   两轮对话 35.0s / 44.7s（各带 `Connection error.` 重试）；换成 fork daemon +
+   provider `bypassProxy` 后，同样 provider/模型的两轮是 **2.82s / 2.20s**（约 14×）。
+4. Bun 内核的价值是**基础设施**：去掉 235MB 的 Python venv、启动/快照更快、
+   空闲内存更低；不是端到端加速。
 
-| Question | Answer |
-| --- | --- |
-| Is the Bun kernel faster per cell? | Yes: **~2× per empty/scalar cell**, **~3× on 1000-write cells**, **~8.5× on snapshots**, **~3.4× on startup** |
-| Does it make the agent feel much faster end to end? | No. Model/network latency is **>99%** of a turn; the kernel contributes milliseconds |
-| Where the fork genuinely wins | no Python venv (235 MB, uv bootstrap), 184 KB runtime vs 1.7 MB + venv, faster startup/snapshot, ~24% lower idle memory |
-| What actually produced the big perceived speedup this week | proxy bypass for the provider (`bypassProxy`): 9.6 s → 1.9 s first byte on the measured channel — not the kernel swap |
+## 1. 口径
 
-## 1. Controlled benchmark
+- 单元格 = `toolResult`，工具名属于内核别名（`python_repl`/`bun_repl`/…），
+  取 `details.durationMs`。
+- 分类：`bash_trivial`（单条 echo/pwd/true 等）、`bash_other`（其它 shell）、
+  `file_or_net`、`import`、`await`、`wait`（sleep/setTimeout）、
+  `pure_short`（≤2 行）、`pure_multi`。
+- 只有一侧存在的类别不做对比；**唯一同口径**的是“单条 bash 命令且命令字符串相同”。
 
-`bun run test/bench/kernel-bench.ts --rounds 3`
+## 2. 语料
 
-| metric | bun | python | bun vs python |
-| --- | ---: | ---: | ---: |
-| cold start (ms) | 11.51 | 39.27 | **-71%** (3.4×) |
-| empty cell (ms) | 0.06 | 0.12 | -50% |
-| scalar cell (ms) | 0.07 | 0.12 | -42% |
-| 1 KiB output (ms) | 0.08 | 0.14 | -43% |
-| 64 KiB output (ms) | 0.13 | 0.21 | -38% |
-| 1000 writes (ms) | 1.48 | 4.41 | **-66%** (3.0×) |
-| bash echo (ms) | 4.22 | 6.35 | -34% |
-| 200 cells, per cell (ms) | 0.04 | 0.11 | **-64%** |
-| snapshot, 200 vars (ms) | 0.55 | 4.69 | **-88%** (8.5×) |
-| RSS at ready (MiB) | 22.38 | 29.52 | -24% |
-| RSS after work (MiB) | 36.02 | 31.06 | **+16%** (Bun uses more) |
-| RSS after GC (MiB) | 36.33 | 31.06 | +17% |
-
-Reading: per-cell interpreter overhead drops by roughly half to two thirds,
-startup by 71%, snapshots by 88%. Under sustained work the Bun process holds a
-larger heap (36 MiB vs 31 MiB) — the one metric where Python wins.
-
-## 2. Real session records
-
-Corpus at the time of writing:
-
-| | Python kernel | Bun kernel |
+| | Python 内核 | Bun 内核 |
 | --- | ---: | ---: |
-| sessions | 48 | 6 |
-| kernel cells | ≈8,700 | ≈360 |
+| 会话数 | 48 | 7 |
+| 内核单元格 | 8,700 | ≈400 |
+| 每会话单元格（均值） | 181.2 | ≈57 |
+| 单元格总耗时 | 517.8 min | ≈34 min |
 
-| slice | python (median / p95) | bun (median / p95) |
+Bun 的语料基本是**同一个重活会话**（Nuxt/CloudBase：装依赖、构建、网络、刻意等待），
+Python 的语料是几个月的混合工作。两者不是同一份工作，这一点决定了下面的读法。
+
+## 3. 同口径对比：相同命令
+
+单条 bash 命令、命令字符串完全一致的单元格：
+
+| 命令 | Python (n / 中位) | Bun (n / 中位) |
 | --- | ---: | ---: |
-| all cells | 56 ms / 10.9 s | 57 ms / 28.1 s |
-| bash-driven cells | 187 ms / 14.3 s | 51.5 ms / 32.3 s |
-| pure cells, 1–5 lines, ok | 5 ms / 5.6 s | 59 ms / 1.2 s |
-| first cell of a session | 4 ms / 63 ms | — |
+| `bun test test/ 2>&1 \| tail -3` | 8 / 20.5ms | 2 / 30.0ms |
+| `bun test test/ 2>&1 \| tail -4` | 2 / 24.5ms | 7 / 47.0ms |
+| `bun test test/ 2>&1 \| tail -5` | 2 / 2576.5ms | 2 / 32.0ms |
+| `bun test test/ 2>&1 \| tail -6` | 3 / 52.0ms | 4 / 27.5ms |
+| `bun test test/ 2>&1 \| tail -8` | 5 / 51.0ms | 1 / 30.0ms |
+| `ls -la` | 3 / 37.0ms | 2 / 15.5ms |
+| **合计** | **23 / 29.0ms** | **18 / 31.5ms** |
 
-**Do not read a speedup from this table.** The two corpora are different jobs:
+结论：在这批真实、可比的单元格上，Bun 没有更快（+8.6%，样本小、差异不显著）。
+原因很直接：单元格耗时主要是子进程启动和命令本身，解释器开销只占很小一部分。
 
-- the Python corpus spans months of mixed work, with many tiny introspection
-  cells (the 5 ms median);
-- the Bun corpus is essentially **one** heavy session (Nuxt/CloudBase work:
-  file I/O, `bun install`, builds, network calls, deliberate `setTimeout`
-  waits). Its "pure" cells still read files or call the network, so the cell
-  duration measures that work, not the interpreter.
+## 4. 分类耗时（仅作上下文，不可直接比）
 
-The controlled benchmark above is the number to quote. The session data is
-useful for three things: corpus size, the error-rate shift (below), and the
-"kernel is a rounding error in a turn" argument.
+| 类别 | Python n / 中位 / p90 | Bun n / 中位 / p90 |
+| --- | ---: | ---: |
+| pure_short | 276 / 7.0ms / 785ms | 0 / — |
+| pure_multi | 392 / 98.5ms / 831ms | 0 / — |
+| import | 381 / 5.0ms / 2.9s | 9 / 1.0ms / 2ms |
+| await | 640 / 15.0ms / 3.7s | 27 / 5.0ms / 95ms |
+| file_or_net | 2,533 / 4.0ms / 466ms | 101 / 437ms / 5.4s |
+| bash_trivial | 94 / 113.5ms / 10.0s | 1 / 501ms |
+| bash_other | 4,277 / 191ms / 9.3s | 252 / 38ms / 18.0s |
+| wait | 107 / 11ms / 75.0s | 6 / 15.1s / 65.9s |
 
-## 3. What dominates a turn
+`import`/`await` 上 Bun 更快（1ms vs 5ms、5ms vs 15ms），符合“没有模块导入/事件循环开销”
+的预期；`file_or_net`、`bash_*` 的差异来自做的事不同（Python 语料里有大量 curl/dig
+网络探测），不能归因于内核。
 
-From `PI_REQUEST_TIMING=1` on a real third-cn request:
+## 5. 反算：到底省了多少时间
 
-| phase | time |
-| --- | ---: |
-| dispatch → prompt built | 0.1 ms |
-| prompt built → request sent | 0.4 ms |
-| request sent → first byte | **3.9–10.3 s** |
-| first byte → first token | 0.3 ms |
-| first token → stream done | 0.1–2.6 s |
+- **同口径部分（相同命令）**：23 vs 18 个单元格，Bun 反而 +2.5ms/格 → 节省 ≈ 0。
+- **上界估算**：把 `import`（381 格 × 4ms）与 `await`（640 格 × 10ms）的差值全部算作
+  内核收益，也只有 **≈ 7.9 秒**；`bash` 两类按同口径应为 0。
+- 换句话说：即使把全语料换成 Bun 内核，**总节省 < 10 秒**，分布在几个月、8,700 个单元格里，
+  单轮不可感知。
 
-A typical kernel cell is 0.05–0.2 ms (empty/scalar) and a bash cell adds the
-command's own runtime. Even a 200-cell session saves ~10 ms of interpreter
-overhead with Bun — invisible next to a 4–10 s model wait.
+## 6. 错误率（语言迁移的真实代价）
 
-The same day's actual end-to-end win came from outside the kernel:
+| | 错误单元格 | 占比 |
+| --- | ---: | ---: |
+| Python | 204 / 8,700 | **2.3%** |
+| Bun | 17 / ≈400 | **4.3%** |
 
-| change | measured effect on first byte |
-| --- | --- |
-| `bypassProxy` for the provider | 9.6 s → **1.9 s** (≈5×) |
-| stale 18-day-old daemon replaced by the fork daemon | 44.7 s turns (2 `Connection error.` retries) → **2.2–2.8 s** |
+Bun 侧的错误主要来自切换初期模型继续写 Python（`SyntaxError`/`ReferenceError`）。
+这是会话记录里**唯一显著变差的指标**；prompt 层与卡片分发的修复针对它，续接旧
+Python 会话仍会复发，建议切换后开新会话。
 
-## 4. Where the Bun swap does pay off
+## 7. 会话记录里真正的提速
 
-- **No Python venv.** `~/.prime/agent/kernel-venv` is **235 MB**; the Bun
-  sidecar is **184 KB** (Bun itself is a one-time, machine-level install).
-  No uv bootstrap, no venv drift, no per-install skill installation.
-- **Startup 3.4× faster** (11.5 ms vs 39.3 ms) and **snapshots 8.5× faster**
-  (0.55 ms vs 4.69 ms for 200 variables), which is what a resumed session
-  pays.
-- **Lower idle footprint** (22.4 vs 29.5 MiB).
-- **No per-cell import costs**: no `import` statements, no module reloading.
+同一 provider（commandcode / `z-ai/glm-5.3-flash`）、同一类提问，前后对比：
 
-## 5. Costs and regressions observed
+| 状态 | 轮次耗时 | 失败 |
+| --- | ---: | --- |
+| 旧 daemon（0.10.1）+ 系统代理 | **35.0s / 44.7s** | 每轮 1–2 次 `Connection error.` |
+| fork daemon + `bypassProxy` | **2.82s / 2.20s** | 0 |
 
-- **Memory under load**: +16% (36.0 vs 31.1 MiB) after sustained work.
-- **Language migration errors**: when existing sessions switched kernels, the
-  model kept writing Python into the Bun kernel — `SyntaxError` /
-  `ReferenceError` cells (4.1% vs 2.3% error rate in the corpus). The prompt
-  layer and the card/dispatch fixes address this; a resumed Python-era session
-  still anchors on its own history, so start a fresh session after the switch.
-- **No `repr()` parity**: results render with `Bun.inspect`, so text is
-  double-quoted and objects are JS-shaped.
+约 **14×**。同期用 `PI_REQUEST_TIMING=1` 实测的首字节也印证：走代理 9.6s → 绕过 1.9s。
 
-## 6. Reproduce
+所以“提速”这件事的正确归因是：
+
+1. 换掉 18 天前的旧 daemon（否则 TUI 的请求全跑在 0.10.1 的 worker 上）；
+2. 给 provider 配 `bypassProxy`；
+3. 内核替换负责的是启动、内存、快照和“不再需要 Python venv”这类基础设施收益，
+   不是一轮对话的墙钟时间。
+
+## 8. 复现
 
 ```bash
-# controlled benchmark (both runtimes, 3 rounds)
-bun run test/bench/kernel-bench.ts --rounds 3
-
-# real-session corpus statistics
 python3 scripts/fork/kernel_session_stats.py
 ```
-
-## 7. Conclusion
-
-The kernel swap is an **infrastructure** improvement, not an end-to-end
-speedup: ~2–3× less per-cell overhead, 3.4× faster startup, 8.5× faster
-snapshots, no 235 MB Python toolchain — against a turn whose model latency is
-measured in seconds. Report the controlled numbers when the subject is the
-kernel; attribute the dramatic "waiting" improvements to the proxy/daemon
-work, not to Bun.
