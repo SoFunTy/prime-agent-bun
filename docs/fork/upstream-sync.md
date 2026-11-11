@@ -44,6 +44,15 @@ runtime. Every one gets a row here with a disposition:
 
 | upstream | disposition | fork | note |
 | --- | --- | --- | --- |
+| sync 2026-11-11 (`a4272b48f..6aaa3a255`, 19 commits) | Merged | `main` | 11 clean; 2 conflicts (`README.md`, `kernel/manager/startup.rs`); the Python path keeps upstream's `-P -s` project-code boundary |
+| `bfad069bf` Prime Inference serving-class picker | Ported (merged) | `crates/pa-types/src/ai/mod.rs` | Shared model vocabulary, no runtime branch |
+| `6abb29e69` project-controlled code on session startup | Inherited | `crates/pa-core/src/resources/mod.rs` | Project-scope Python skills are Markdown-only and filtered out of `get_python_skill_runtime_info`, so the Bun bootstrap list excludes them; JS-only project skills are never listed |
+| `e736697db` remove TS comparison tests | Not applicable | — | CI + docs policy only |
+| `00a60576f` harness lock-budget override | Not applicable | — | Python-only test internals |
+| `90fb139d7` shared dependency features | Merged | `ci.yml`, `Cargo.toml` | Build/CI only |
+| `202afe2fc` same-path reopen snapshot | Deferred | — | Bun snapshot/reopen parity not yet verified |
+| `f836ab2a5` rebootstrap memo | Ported (inherited) | `kernel/manager` | Shared manager layer, runtime-agnostic |
+| `6aaa3a255` web search provider (Serper / You.com Eco) | Deferred | `skills/websearch/index.ts` | The JS skill is still Serper-only; it must read `PRIME_AGENT_WEBSEARCH_PROVIDER` and the `eco` key |
 | kernel protocol v3 (`repl.md`) | Ported | `prime-agent-bun-runtime/src/repl.ts` | Full request/event set, caps, ordering |
 | dill snapshots | Ported (format divergence) | `src/snapshot.ts` | Bun-native payload; host treats it as opaque |
 | `rlm.spawn` / `create_session` / `find_models` / `list_subagents` / `collect` / `rename` / `delete_subagent` / `progress_note` / `end_turn` / `session.messages` | Ported | `src/rlm.ts` | Same wire request types |

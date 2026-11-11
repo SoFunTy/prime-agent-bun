@@ -61,7 +61,7 @@ Prime Agent combines a persistent Bun control environment with durable harness s
 - **Everything is programmatic:** a persistent Bun REPL (JavaScript/TypeScript) is the built-in model tool; file operations, shell commands, tool use, subagents, and context management happen through code.
 - **Subagents are built in:** `rlm.spawn(...)` spawns real child agents for parallel or background work and returns their results programmatically.
 - **The harness can improve:** `/refine` reviews the current trajectory and can apply small, evidence-backed updates to supplemental harness state. It never rewrites the immutable base system prompt, and recorded snapshots support rollback.
-- **Skills are executable:** skills are executable JavaScript modules, and the built-in skill creator can turn recurring workflows into project or personal skills.
+- **Skills can be executable:** user-configured skills are loaded as JavaScript modules into the Bun kernel; repository skills provide Markdown instructions without automatic code execution, and the built-in skill creator can turn recurring workflows into project or personal skills.
 - **Sessions run in the background:** daemon-backed agents keep running when the terminal disconnects and can be reattached later.
 - **Agents communicate directly:** running agents can exchange messages and orchestrate one another without routing everything through the user.
 - **Long tasks keep moving:** automatic compaction, persistent goals, heartbeats, schedules, autonomous mode, and retained subagents preserve progress across turns and terminal sessions.
