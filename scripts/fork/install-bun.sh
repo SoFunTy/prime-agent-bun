@@ -1,22 +1,27 @@
 #!/bin/sh
-# Install the fork's Bun-kernel prime-agent from a GitHub Release (or a local
-# release archive). It never touches an installed `prime-agent` (the official
-# product): the payload lands under ~/.local/share/prime-agent-bun and the
-# launcher is ~/.local/bin/prime-agent-bun.
+# Install or update the fork's Bun-kernel prime-agent from GitHub Releases.
+# It never touches an installed `prime-agent` (the official product): the
+# payload lands under ~/.local/share/prime-agent-bun and the command is
+# ~/.local/bin/prime-agent-bun.
 #
-#   curl -fsSL https://raw.githubusercontent.com/<you>/prime-agent-bun/main/scripts/fork/install-bun.sh | sh -s -- 0.10.2
+#   curl -fsSL .../install-bun.sh | sh -s -- 0.10.2     # install a version
+#   curl -fsSL .../install-bun.sh | sh -s -- --check    # is there a newer one?
+#   curl -fsSL .../install-bun.sh | sh -s -- --update   # install it if so
 #
 # Environment overrides:
 #   PRIME_AGENT_BUN_REPO       GitHub repo (default SoFunTy/prime-agent-bun)
 #   PRIME_AGENT_BUN_BASE_URL   release download base (default GitHub Releases)
+#   PRIME_AGENT_BUN_API_URL    GitHub API base (default https://api.github.com)
 #   PRIME_AGENT_BUN_PREFIX     payload dir (default ~/.local/share/prime-agent-bun)
 #   PRIME_AGENT_BUN_BIN_DIR    launcher dir (default ~/.local/bin)
 set -eu
 
 REPO="${PRIME_AGENT_BUN_REPO:-SoFunTy/prime-agent-bun}"
 BASE_URL="${PRIME_AGENT_BUN_BASE_URL:-https://github.com/${REPO}/releases/download}"
+API_URL="${PRIME_AGENT_BUN_API_URL:-https://api.github.com}"
 PREFIX="${PRIME_AGENT_BUN_PREFIX:-$HOME/.local/share/prime-agent-bun}"
 BIN_DIR="${PRIME_AGENT_BUN_BIN_DIR:-$HOME/.local/bin}"
+LAUNCHER="$BIN_DIR/prime-agent-bun"
 
 say() { printf '%s\n' "$*"; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
@@ -26,9 +31,12 @@ usage() {
 usage: install-bun.sh <version>            install release tag fork-v<version>
        install-bun.sh --archive <file>     install a local prime-agent-<version>-<platform>.tar.gz
        install-bun.sh --version <version>  same as the positional form
+       install-bun.sh --check              print the running vs latest released version
+       install-bun.sh --update             install the latest release when it is newer
 EOF
 }
 
+ACTION="install"
 ARCHIVE=""
 VERSION=""
 while [ $# -gt 0 ]; do
@@ -39,6 +47,8 @@ while [ $# -gt 0 ]; do
     --version)
       [ $# -ge 2 ] || die "--version needs a value"
       VERSION="$2"; shift 2 ;;
+    --check) ACTION="check"; shift ;;
+    --update) ACTION="update"; shift ;;
     -h|--help) usage; exit 0 ;;
     -*) die "unknown option: $1 (see --help)" ;;
     *) VERSION="$1"; shift ;;
@@ -52,6 +62,64 @@ case "$(uname -s):$(uname -m)" in
   Linux:aarch64|Linux:arm64) PLATFORM="linux-arm64" ;;
   *) die "unsupported platform: $(uname -s) $(uname -m)" ;;
 esac
+
+# The version the launcher points at (`<prefix>/releases/<version>/prime-agent`).
+installed_version() {
+  [ -L "$LAUNCHER" ] || return 1
+  target="$(readlink "$LAUNCHER")" || return 1
+  case "$target" in
+    */releases/*/prime-agent) ;;
+    *) return 1 ;;
+  esac
+  release_dir="${target%/prime-agent}"
+  printf '%s\n' "${release_dir##*/}"
+}
+
+# The latest release tag (`fork-v<version>`) from the GitHub API.
+latest_tag() {
+  body="$(curl -fsSL -H 'Accept: application/vnd.github+json' \
+    "${API_URL}/repos/${REPO}/releases/latest")" ||
+    die "could not read the latest release of ${REPO} (has one been published?)"
+  tag="$(printf '%s' "$body" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
+  [ -n "$tag" ] || die "the latest release of ${REPO} has no tag name"
+  printf '%s\n' "$tag"
+}
+
+# version_gt A B: true (exit 0) when A is a newer major.minor.patch than B.
+version_gt() {
+  awk -v a="$1" -v b="$2" 'BEGIN {
+    na = split(a, A, "."); nb = split(b, B, ".")
+    for (i = 1; i <= 3; i++) {
+      x = (i <= na ? A[i] : 0) + 0
+      y = (i <= nb ? B[i] : 0) + 0
+      if (x > y) exit 0
+      if (x < y) exit 1
+    }
+    exit 1
+  }'
+}
+
+if [ "$ACTION" = "check" ] || [ "$ACTION" = "update" ]; then
+  current="$(installed_version || true)"
+  tag="$(latest_tag)"
+  latest="${tag#fork-v}"
+  latest="${latest#v}"
+  if [ -z "$current" ]; then
+    say "prime-agent-bun is not installed here (latest: $latest)"
+  elif version_gt "$latest" "$current"; then
+    say "update available: $current -> $latest"
+  else
+    say "up to date: $current (latest: $latest)"
+  fi
+  if [ "$ACTION" = "check" ]; then
+    exit 0
+  fi
+  if [ -n "$current" ] && ! version_gt "$latest" "$current"; then
+    exit 0
+  fi
+  VERSION="$latest"
+  say "installing $VERSION"
+fi
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT INT TERM
@@ -99,10 +167,10 @@ tar -xzf "$file" -C "$target" || die "extract failed"
   die "the archive has no prime-agent-bun-runtime/ (the kernel payload)"
 
 mkdir -p "$BIN_DIR"
-ln -sfn "$target/prime-agent" "$BIN_DIR/prime-agent-bun"
+ln -sfn "$target/prime-agent" "$LAUNCHER"
 
 say "installed prime-agent-bun $VERSION to $target"
-say "launcher: $BIN_DIR/prime-agent-bun"
+say "command: $LAUNCHER"
 case ":$PATH:" in
   *":$BIN_DIR:"*) ;;
   *) say "note: add $BIN_DIR to PATH: export PATH=\"$BIN_DIR:\$PATH\"" ;;
