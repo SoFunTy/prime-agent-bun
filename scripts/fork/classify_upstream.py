@@ -34,6 +34,8 @@ KERNEL_SURFACE_PATTERNS: tuple[tuple[str, str], ...] = (
     ("kernel-tests", r"^crates/pa-core/tests/bun_"),
     ("kernel-vocabulary", r"^crates/pa-core/src/session_engine/(?:ipython_state|state_restore_notice|skills_unavailable_notice|compaction|agent_messaging)\.rs$"),
     ("shared-vocabulary", r"^crates/pa-types/src/(?:kernel_runtime\.rs|lib\.rs|ai/mod\.rs)$"),
+    ("http-transport", r"^crates/pa-ai/src/(?:utils_inner/http\.rs|lib\.rs)$"),
+    ("provider-config", r"^crates/pa-core/src/models/(?:custom|registry)\.rs$"),
     ("kernel-tool-dispatch", r"^crates/pa-core/src/session_engine/(?:tool_bridge\.rs|engine\.rs|engine/tests\.rs)$"),
     ("kernel-tool-schema", r"^crates/pa-cli/src/prompt_command\.rs$"),
     ("acp-kernel-title", r"^crates/pa-daemon/src/acp/wire_events\.rs$"),

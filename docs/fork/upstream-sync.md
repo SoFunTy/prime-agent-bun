@@ -72,8 +72,8 @@ Update this table (and `KERNEL-API.md`) in the same change that ports something.
 
 The protocol suite and the scripted-provider gates prove the *machinery*. They
 cannot prove the model behaves under the real prompt, so a live session was run
-against a user-configured provider (`third-cn` / `deepseek-v4.1-flash`, isolated
-session dir):
+against a user-configured provider (an isolated session dir, no provider
+identifiers recorded):
 
 | Scenario | Result |
 | --- | --- |

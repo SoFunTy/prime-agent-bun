@@ -479,6 +479,13 @@ impl ModelRegistry {
                 super::custom::parse_models_config(&super::custom::strip_json_comments(&content))
             {
                 for (provider, provider_config) in config.providers {
+                    // Fork: a provider may opt its host out of the process proxy
+                    // (a local proxy in front of a direct-reachable endpoint).
+                    if provider_config.bypass_proxy == Some(true) {
+                        if let Some(base_url) = &provider_config.base_url {
+                            pa_ai::utils::bypass_proxy_for_url(base_url);
+                        }
+                    }
                     if provider_config.api_key.is_some()
                         || provider_config.headers.is_some()
                         || provider_config.auth_header.is_some()

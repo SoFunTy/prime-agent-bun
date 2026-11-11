@@ -142,6 +142,8 @@ pub struct ProviderConfig {
     pub headers: Option<BTreeMap<String, String>>,
     pub compat: Option<serde_json::Value>,
     pub auth_header: Option<bool>,
+    /// Skip the process proxy for this provider's host (fork field).
+    pub bypass_proxy: Option<bool>,
     pub models: Option<Vec<ModelDefinition>>,
     pub model_overrides: Option<BTreeMap<String, ModelOverride>>,
 }
@@ -484,6 +486,25 @@ mod tests {
         let error = validate_config(&config, &|_| false).unwrap_err();
         assert!(error.contains("apiKey"));
         assert!(validate_config(&config, &|p| p == "custom").is_ok());
+    }
+
+    #[test]
+    fn a_provider_can_bypass_the_process_proxy() {
+        let config = parse_models_config(
+            r#"{ "providers": {
+                "direct": { "baseUrl": "https://direct.example.com/v1", "apiKey": "k", "bypassProxy": true,
+                              "models": [ { "id": "m" } ] },
+                "proxied": { "baseUrl": "https://api.example.com/v1", "apiKey": "k",
+                             "models": [ { "id": "m" } ] }
+            } }"#,
+        )
+        .unwrap();
+        assert_eq!(
+            config.providers["direct"].bypass_proxy,
+            Some(true),
+            "the fork field parses"
+        );
+        assert_eq!(config.providers["proxied"].bypass_proxy, None);
     }
 
     #[test]

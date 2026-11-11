@@ -3,7 +3,8 @@
 //! HTTP failures as [`ProviderError::Http`]; request-send failures as
 //! [`ProviderError::Connection`].
 
-use std::sync::OnceLock;
+use std::collections::HashSet;
+use std::sync::{Mutex, OnceLock};
 
 use tokio_util::sync::CancellationToken;
 
@@ -14,6 +15,54 @@ use crate::utils::stream_failure::{
 
 static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
 static H2_ALPN_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+/// The same two transports with the process proxy disabled, for hosts a
+/// `models.json` provider marks `bypassProxy`.
+static DIRECT_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+static DIRECT_H2_ALPN_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+
+/// Hosts whose requests skip the proxy. Registered from `models.json`
+/// (`providers.<name>.bypassProxy`) at load time; the URL host is the key, so
+/// one provider's setting covers every model it serves.
+static PROXY_BYPASS_HOSTS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
+
+fn bypass_hosts() -> &'static Mutex<HashSet<String>> {
+    PROXY_BYPASS_HOSTS.get_or_init(|| Mutex::new(HashSet::new()))
+}
+
+/// Register the host of `url` (a provider `baseUrl`) as proxy-bypassing.
+pub fn bypass_proxy_for_url(url: &str) {
+    let Some(host) = url_host(url) else {
+        return;
+    };
+    if let Ok(mut hosts) = bypass_hosts().lock() {
+        hosts.insert(host);
+    }
+}
+
+/// Forget every registered proxy bypass (a models reload; tests).
+pub fn clear_proxy_bypass_hosts() {
+    if let Ok(mut hosts) = bypass_hosts().lock() {
+        hosts.clear();
+    }
+}
+
+/// Whether `url` targets a host registered by [`bypass_proxy_for_url`].
+#[must_use]
+pub fn bypasses_proxy(url: &str) -> bool {
+    let Some(host) = url_host(url) else {
+        return false;
+    };
+    bypass_hosts()
+        .lock()
+        .is_ok_and(|hosts| hosts.contains(&host))
+}
+
+fn url_host(url: &str) -> Option<String> {
+    reqwest::Url::parse(url)
+        .ok()?
+        .host_str()
+        .map(str::to_ascii_lowercase)
+}
 
 /// The HTTP/1.1 client every provider shares, pinned with `http1_only()` so that enabling the
 /// reqwest `http2` feature (bedrock) cannot change the transport of any other provider.
@@ -35,6 +84,29 @@ fn h2_alpn_client() -> &'static reqwest::Client {
             .pool_idle_timeout(std::time::Duration::from_secs(90))
             .build()
             .expect("reqwest h2 client")
+    })
+}
+
+/// The proxy-bypassing HTTP/1.1 client (`bypassProxy`).
+fn direct_client() -> &'static reqwest::Client {
+    DIRECT_CLIENT.get_or_init(|| {
+        crate::utils_inner::tls::http_client_builder()
+            .http1_only()
+            .no_proxy()
+            .pool_idle_timeout(std::time::Duration::from_secs(90))
+            .build()
+            .expect("reqwest direct client")
+    })
+}
+
+/// The proxy-bypassing TLS-ALPN client (bedrock https).
+fn direct_h2_alpn_client() -> &'static reqwest::Client {
+    DIRECT_H2_ALPN_CLIENT.get_or_init(|| {
+        crate::utils_inner::tls::http_client_builder()
+            .no_proxy()
+            .pool_idle_timeout(std::time::Duration::from_secs(90))
+            .build()
+            .expect("reqwest direct h2 client")
     })
 }
 
@@ -224,11 +296,14 @@ pub async fn send(request: RequestOptions) -> Result<HttpResponse, ProviderError
         return Err(ProviderError::Aborted);
     }
 
-    let client = match request.transport {
-        Transport::Http1 => client(),
-        Transport::H2Alpn => h2_alpn_client(),
+    let direct = bypasses_proxy(&request.url);
+    let http_client = match (request.transport, direct) {
+        (Transport::Http1, false) => client(),
+        (Transport::Http1, true) => direct_client(),
+        (Transport::H2Alpn, false) => h2_alpn_client(),
+        (Transport::H2Alpn, true) => direct_h2_alpn_client(),
     };
-    let mut builder = client.request(request.method, &request.url);
+    let mut builder = http_client.request(request.method, &request.url);
     for (name, value) in &request.headers {
         builder = builder.header(name, value);
     }
@@ -350,6 +425,29 @@ pub async fn post_json(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_registered_host_bypasses_the_proxy() {
+        clear_proxy_bypass_hosts();
+        assert!(!bypasses_proxy(
+            "https://provider.example.com/v1/chat/completions"
+        ));
+        bypass_proxy_for_url("https://provider.example.com/v1");
+        assert!(bypasses_proxy(
+            "https://provider.example.com/v1/chat/completions"
+        ));
+        assert!(
+            bypasses_proxy("https://PROVIDER.EXAMPLE.COM/v1"),
+            "host matching is case-insensitive"
+        );
+        assert!(
+            !bypasses_proxy("https://other.example.com/v1"),
+            "other hosts keep the process proxy"
+        );
+        assert!(!bypasses_proxy("not a url"));
+        clear_proxy_bypass_hosts();
+        assert!(!bypasses_proxy("https://provider.example.com/v1"));
+    }
 
     /// Serve one plain-text body split across two writes. The second write is held until `hold`
     /// fires, so the chunk boundary lands where the caller put it.

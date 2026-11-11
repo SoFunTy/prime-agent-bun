@@ -41,6 +41,8 @@ the declared set.
 | `crates/pa-core/src/kernel/vocabulary.rs` | The words model-facing notices use for the running kernel (new) |
 | `crates/pa-types/src/kernel_runtime.rs` | Shared runtime-selection vocabulary, so `pa-tui` can label cells (new) |
 | `crates/pa-types/src/ai/mod.rs` | The kernel tool's name (`bun_repl` / `python_repl`) and the alias set |
+| `crates/pa-ai/src/utils_inner/http.rs`, `crates/pa-ai/src/lib.rs` | The proxy-bypass transport clients and their host registry |
+| `crates/pa-core/src/models/{custom,registry}.rs` | The `bypassProxy` provider field (`models.json`) and its registration |
 | `crates/pa-core/src/session_engine/{tool_bridge,engine}.rs`, `engine/tests.rs` | Tool dispatch follows the active tool name |
 | `crates/pa-cli/src/prompt_command.rs` | The assembled-prompt tool list |
 | `crates/pa-daemon/src/acp/wire_events.rs` | The ACP tool-call title follows the kernel |
