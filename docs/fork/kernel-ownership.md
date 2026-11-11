@@ -64,6 +64,7 @@ the declared set.
 | `test/**` | The fork's verification suite (cases + harness) |
 | `scripts/fork/**` | Upstream classification and drift tooling |
 | `docs/fork/**` | Ownership map and sync ledger |
+| `.gitignore` | Keeps the fork's local tool state (agent/session dirs) out of history |
 | `.github/workflows/ci.yml` | Runtime-suite lane, kernel drift check |
 | `Makefile` | Runtime sidecar wiring |
 | `packaging/**`, `install-rust.sh`, `install.ps1` | Sidecar layout beside the binary |

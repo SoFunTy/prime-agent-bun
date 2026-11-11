@@ -30,6 +30,7 @@ FORK_TOOLING = (
     r"^scripts/fork/",
     r"^test/",
     r"^\.changes/",
+    r"^\.gitignore$",
 )
 
 

@@ -58,6 +58,7 @@ KERNEL_SURFACE_PATTERNS: tuple[tuple[str, str], ...] = (
     ("kernel-scripts", r"^scripts/check_(?:kernel_env|ipython_diff_frames|restore_notice)\.py$"),
     ("fork-suite", r"^test/"),
     ("fork-docs", r"^docs/fork/"),
+    ("repo-config", r"^\.gitignore$"),
 )
 
 # Upstream paths that are re-implemented by the fork's runtime; their changes are
