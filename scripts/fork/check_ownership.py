@@ -31,6 +31,7 @@ FORK_TOOLING = (
     r"^test/",
     r"^\.changes/",
     r"^\.gitignore$",
+    r"^update-prompt\.md$",
 )
 
 

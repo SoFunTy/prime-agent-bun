@@ -55,13 +55,14 @@ KERNEL_SURFACE_PATTERNS: tuple[tuple[str, str], ...] = (
     ("skills-rust", r"^crates/pa-core/src/skills/"),
     ("skills-payload", r"^skills/"),
     ("ci", r"^\.github/workflows/(?:ci|continuous|nightly)\.yml$"),
+    ("fork-ci", r"^\.github/workflows/fork-release\.yml$"),
     ("make", r"^Makefile$"),
     ("packaging", r"^(?:packaging/|install-rust\.sh$|install\.ps1$|scripts/package_release\.py$)"),
     ("packaging-scripts", r"^scripts/release/"),
     ("kernel-scripts", r"^scripts/check_(?:kernel_env|ipython_diff_frames|restore_notice)\.py$"),
     ("fork-suite", r"^test/"),
     ("fork-docs", r"^docs/fork/"),
-    ("repo-config", r"^\.gitignore$"),
+    ("repo-config", r"^(?:\.gitignore|update-prompt\.md)$"),
 )
 
 # Upstream paths that are re-implemented by the fork's runtime; their changes are

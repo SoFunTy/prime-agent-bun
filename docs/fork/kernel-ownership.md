@@ -71,7 +71,9 @@ the declared set.
 | `scripts/fork/**` | Upstream classification and drift tooling |
 | `docs/fork/**` | Ownership map and sync ledger |
 | `.gitignore` | Keeps the fork's local tool state (agent/session dirs) out of history |
+| `update-prompt.md` | The upstream-sync runbook handed to an agent |
 | `.github/workflows/ci.yml` | Runtime-suite lane, kernel drift check |
+| `.github/workflows/fork-release.yml` | The fork's native packaging/release lane |
 | `Makefile` | Runtime sidecar wiring |
 | `packaging/**`, `install-rust.sh`, `install.ps1` | Sidecar layout beside the binary |
 | `scripts/package_release.py`, `scripts/release/**` | The Bun sidecar rides the release payload (including their synthetic-tree fixtures) |
