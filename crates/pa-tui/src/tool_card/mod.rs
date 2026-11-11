@@ -127,7 +127,7 @@ pub fn render_tool_card(
     show_images: bool,
 ) -> Vec<Line> {
     match card.name.as_str() {
-        name if pa_types::ai::is_python_tool_name(name) => {
+        name if pa_types::ai::is_kernel_tool_name(name) => {
             ipython::render(card, frame, detail, level, theme, width, show_images)
         }
         "bash" => bash::render(card, frame, detail, theme, width, show_images),
@@ -378,7 +378,7 @@ pub(crate) fn count_tool_card(
     show_images: bool,
 ) -> usize {
     match card.name.as_str() {
-        name if pa_types::ai::is_python_tool_name(name) => {
+        name if pa_types::ai::is_kernel_tool_name(name) => {
             ipython::count(card, frame, detail, level, theme, width, show_images)
         }
         "bash" => bash::count(card, frame, detail, theme, width, show_images),
@@ -417,6 +417,48 @@ mod tests {
             details: serde_json::Value::Null,
             is_error: false,
         })
+    }
+
+    #[test]
+    fn a_bun_cell_uses_the_kernel_card() {
+        // `bun_repl` is the shipped tool name: it must route to the kernel
+        // cell card, not the generic card that dumps the raw arguments and
+        // result (which reads as an always-expanded call).
+        let card = ToolCallCard {
+            id: "toolu_1".into(),
+            name: "bun_repl".into(),
+            args: serde_json::json!({ "code": "const r = await bash(\"ls\");\nr.output;" }),
+            started: true,
+            result: Some(ToolResultView {
+                content: vec![serde_json::json!({ "type": "text", "text": "\"a\\nb\\n\"" })],
+                details: serde_json::json!({
+                    "status": "ok",
+                    "durationMs": 1,
+                    "result": "\"a\\nb\\n\""
+                }),
+                is_error: false,
+            }),
+            ..Default::default()
+        };
+        let rows = render_tool_card(
+            &card,
+            0,
+            Detail::Overview,
+            Detail::Overview,
+            &theme(),
+            120,
+            false,
+        );
+        let text = rows.iter().map(text_of).collect::<Vec<_>>().join("\n");
+        assert!(
+            text.contains('\u{2191}'),
+            "the kernel summary line renders: {text}"
+        );
+        assert!(
+            !text.contains("\"code\""),
+            "the raw argument JSON never renders: {text}"
+        );
+        assert_eq!(rows.len(), 1, "overview keeps one row: {text}");
     }
 
     #[test]

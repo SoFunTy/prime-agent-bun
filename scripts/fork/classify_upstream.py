@@ -40,6 +40,7 @@ KERNEL_SURFACE_PATTERNS: tuple[tuple[str, str], ...] = (
     ("kernel-tool-schema", r"^crates/pa-cli/src/prompt_command\.rs$"),
     ("acp-kernel-title", r"^crates/pa-daemon/src/acp/wire_events\.rs$"),
     ("ui-kernel-label", r"^crates/pa-tui/src/tool_card/ipython\.rs$"),
+    ("kernel-tool-followups", r"^(?:crates/pa-tui/src/(?:tool_card/mod|tree_display|session_ui/apply)\.rs|crates/pa-daemon/src/acp/types\.rs|crates/pa-core/src/session_engine/(?:late_sent_messages|compaction_utils)\.rs)$"),
     ("ui-injected-prompt", r"^crates/pa-tui/src/custom_message/injected_prompt\.rs$"),
     ("harness-digest", r"^crates/pa-core/src/refinement/ranking\.rs$"),
     ("goal-prompt", r"^crates/pa-core/src/goals\.rs$"),

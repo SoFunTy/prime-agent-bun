@@ -81,11 +81,11 @@ pub enum AcpToolKind {
 }
 
 impl AcpToolKind {
-    /// The kind map: the model-facing tool is the Python REPL; bash is the
+    /// The kind map: the model-facing tool is the kernel REPL; bash is the
     /// secondary escape hatch.
     pub fn of_tool(tool_name: &str) -> AcpToolKind {
         match tool_name {
-            name if pa_types::ai::is_python_tool_name(name) => AcpToolKind::Execute,
+            name if pa_types::ai::is_kernel_tool_name(name) => AcpToolKind::Execute,
             "bash" => AcpToolKind::Execute,
             "read" => AcpToolKind::Read,
             "edit" | "write" => AcpToolKind::Edit,

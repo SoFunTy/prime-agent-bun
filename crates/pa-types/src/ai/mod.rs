@@ -281,6 +281,9 @@ pub fn is_kernel_tool_name(name: &str) -> bool {
     )
 }
 
+/// The Python runtime's own spelling(s). Dispatch, card rendering, and every
+/// other "is this the kernel cell tool" check uses [`is_kernel_tool_name`],
+/// which also accepts the Bun runtime's `bun_repl`.
 #[must_use]
 pub fn is_python_tool_name(name: &str) -> bool {
     matches!(name, PYTHON_TOOL_NAME | "python" | "ipython")

@@ -48,6 +48,10 @@ the declared set.
 | `crates/pa-daemon/src/acp/wire_events.rs` | The ACP tool-call title follows the kernel |
 | `crates/pa-core/src/session_engine/{ipython_state,state_restore_notice,skills_unavailable_notice,compaction,agent_messaging}.rs` | Notice prose follows the runtime (tags preserved) |
 | `crates/pa-tui/src/tool_card/ipython.rs` | The cell card's language label follows the runtime |
+| `crates/pa-tui/src/tool_card/mod.rs` | Kernel-card dispatch accepts `bun_repl` (a miss falls back to the raw generic card) |
+| `crates/pa-tui/src/tree_display.rs`, `session_ui/apply.rs` | Kernel-cell rows and their telemetry accept `bun_repl` |
+| `crates/pa-daemon/src/acp/types.rs` | The ACP tool kind treats `bun_repl` as Execute |
+| `crates/pa-core/src/session_engine/{late_sent_messages,compaction_utils}.rs` | Kernel receipt patching and edit-diff extraction accept `bun_repl` |
 | `crates/pa-tui/src/custom_message/injected_prompt.rs` | The injected-prompt headers (`Restored <Bun|Python> kernel state`, `<JavaScript|Python> skills unavailable`) follow the runtime |
 | `crates/pa-core/src/refinement/ranking.rs` | The harness digest's call contract follows the runtime |
 | `crates/pa-core/src/goals.rs` | The goal continuation prompt names the running REPL |
