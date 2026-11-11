@@ -110,6 +110,44 @@ def cliffs_delta(a: list[float], b: list[float]) -> float | None:
     return wins / (len(a) * len(b))
 
 
+def bootstrap_median_diff(a: list[dict], b: list[dict], rounds: int = 2000) -> tuple[float, float] | None:
+    """Session-cluster bootstrap CI for median(b) - median(a)."""
+    groups = {}
+    for name, cells in (("a", a), ("b", b)):
+        by_session: dict[str, list[float]] = defaultdict(list)
+        for cell in cells:
+            by_session[cell["sid"]].append(cell["ms"])
+        groups[name] = by_session
+    if len(groups["a"]) < 3 or len(groups["b"]) < 3:
+        return None
+    rng = random.Random(11)
+    diffs = []
+    for _ in range(rounds):
+        medians = {}
+        for name, by_session in groups.items():
+            sessions = list(by_session)
+            pool = [value for sid in (rng.choice(sessions) for _ in sessions) for value in by_session[sid]]
+            medians[name] = statistics.median(pool)
+        diffs.append(medians["b"] - medians["a"])
+    diffs.sort()
+    return diffs[int(0.025 * (len(diffs) - 1))], diffs[int(0.975 * (len(diffs) - 1))]
+
+
+def compare(label: str, py: list[float], bun: list[float], note: str = "") -> str:
+    """One comparison row: medians, delta, ratio, percent change."""
+    if not py or not bun:
+        return f"| {label} | {len(py)} | {len(bun)} | — | — | — | — | {note} |"
+    med_py = statistics.median(py)
+    med_bun = statistics.median(bun)
+    delta = med_bun - med_py
+    ratio = med_bun / med_py if med_py else float("inf")
+    pct = delta / med_py * 100 if med_py else 0.0
+    return (
+        f"| {label} | {med_py:.1f} | {med_bun:.1f} | {delta:+.1f} | {ratio:.2f}× | {pct:+.1f}% | "
+        f"{len(py)}/{len(bun)} | {note} |"
+    )
+
+
 def wilson(errors: int, total: int) -> tuple[float, float]:
     if not total:
         return (0.0, 0.0)
@@ -224,6 +262,51 @@ def main() -> int:
         for model, count in models.most_common(3):
             print(f"    {model}: {count}")
 
+    print("\n## Headline comparison values (Bun vs Python)")
+    print("| metric | python | bun | delta | ratio | change | n py/bun | note |")
+    print("| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |")
+    print(compare("all kernel cells", [c["ms"] for c in by_kernel["python"]],
+                  [c["ms"] for c in by_kernel["bun"]], "workloads differ"))
+    model = "commandcode/deepseek/deepseek-v4.1-flash"
+    print(compare(f"same model ({model.split('/')[-1]})",
+                  [c["ms"] for c in by_kernel["python"] if c["model"] == model],
+                  [c["ms"] for c in by_kernel["bun"] if c["model"] == model],
+                  "model-controlled, workload still differs"))
+    singles = [cell for cell in cells if cell["bash_count"] == 1 and cell["command"]]
+    commands = {kernel: Counter(cell["command"] for cell in singles if cell["kernel"] == kernel)
+                for kernel in KERNELS}
+    common = set(commands["python"]) & set(commands["bun"])
+    matched_py = [cell["ms"] for cell in singles if cell["kernel"] == "python" and cell["command"] in common]
+    matched_bun = [cell["ms"] for cell in singles if cell["kernel"] == "bun" and cell["command"] in common]
+    print(compare("identical bash commands", matched_py, matched_bun,
+                  f"Cliff's delta={cliffs_delta(matched_bun, matched_py):+.2f}; the only like-for-like slice"))
+    for cls in ("import", "await"):
+        print(compare(cls, [c["ms"] for c in by_kernel["python"] if c["class"] == cls],
+                      [c["ms"] for c in by_kernel["bun"] if c["class"] == cls], "class cohorts, not matched work"))
+    py_first = [c["ms"] for c in by_kernel["python"] if c["first"]]
+    bun_first = [c["ms"] for c in by_kernel["bun"] if c["first"]]
+    print(compare("kernel readiness (first cell)", py_first, bun_first, "includes kernel start"))
+    if py_first and bun_first:
+        print(f"| readiness p90 | {quant(py_first)['p90']:.1f} | {quant(bun_first)['p90']:.1f} | "
+              f"{quant(bun_first)['p90']-quant(py_first)['p90']:+.1f} | "
+              f"{quant(bun_first)['p90']/quant(py_first)['p90']:.2f}× | "
+              f"{(quant(bun_first)['p90']-quant(py_first)['p90'])/quant(py_first)['p90']*100:+.1f}% | "
+              f"{len(py_first)}/{len(bun_first)} | includes kernel start |")
+        print(f"| readiness max | {quant(py_first)['max']:.1f} | {quant(bun_first)['max']:.1f} | "
+              f"{quant(bun_first)['max']-quant(py_first)['max']:+.1f} | "
+              f"{quant(bun_first)['max']/quant(py_first)['max']:.2f}× | "
+              f"{(quant(bun_first)['max']-quant(py_first)['max'])/quant(py_first)['max']*100:+.1f}% | "
+              f"{len(py_first)}/{len(bun_first)} | cold-start outlier |")
+    py_err = sum(1 for c in by_kernel["python"] if c["error"]) / len(by_kernel["python"])
+    bun_err = sum(1 for c in by_kernel["bun"] if c["error"]) / len(by_kernel["bun"])
+    print(f"| error rate | {py_err:.1%} | {bun_err:.1%} | {bun_err-py_err:+.1%} pp | "
+          f"{bun_err/py_err:.2f}× | {(bun_err-py_err)/py_err*100:+.1f}% | "
+          f"{len(by_kernel['python'])}/{len(by_kernel['bun'])} | language migration |")
+    diff_ci = bootstrap_median_diff(by_kernel["python"], by_kernel["bun"])
+    if diff_ci:
+        print(f"\nall-cells median difference 95% CI: [{diff_ci[0]:+.1f}, {diff_ci[1]:+.1f}] ms "
+              f"(spans zero = not distinguishable)")
+
     print("\n## Duration distribution (all cells)")
     print("| kernel | n | median | 95% CI (session bootstrap) | p75 | p90 | p95 | p99 | mean | max |")
     print("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
@@ -264,6 +347,17 @@ def main() -> int:
             f"\nmatched total: python n={len(matched_py)} median={statistics.median(matched_py):.1f}ms; "
             f"bun n={len(matched_bun)} median={statistics.median(matched_bun):.1f}ms; "
             f"Cliff's delta={delta:+.2f} (positive = Bun slower)"
+        )
+        rng = random.Random(23)
+        diffs = []
+        for _ in range(4000):
+            py_sample = [rng.choice(matched_py) for _ in matched_py]
+            bun_sample = [rng.choice(matched_bun) for _ in matched_bun]
+            diffs.append(statistics.median(bun_sample) - statistics.median(py_sample))
+        diffs.sort()
+        print(
+            f"matched median-difference 95% CI (cell bootstrap): "
+            f"[{diffs[int(0.025*(len(diffs)-1))]:+.1f}, {diffs[int(0.975*(len(diffs)-1))]:+.1f}] ms"
         )
 
     print("\n## Bash cells by output size (stdout chars)")
