@@ -90,6 +90,7 @@ EXCLUDED_SUFFIXES = (".pyc", ".egg-info")
 # assets must sit beside the executable.
 REQUIRED_FILES = (
     "prime-agent",
+    "install-bun.sh",
     "package.json",
     "README.md",
     "LICENSE",
@@ -239,6 +240,10 @@ def stage(root, binary, version, stage_dir, catalog_assets, binary_name):
         else:
             copy_tree(root / name, stage_dir / name)
     shutil.copy2(root / "README.md", stage_dir / "README.md")
+    # The fork's updater: `/update` in the Bun build runs this script with
+    # --update instead of the upstream installer funnel.
+    shutil.copy2(root / "scripts" / "fork" / "install-bun.sh", stage_dir / "install-bun.sh")
+    (stage_dir / "install-bun.sh").chmod(0o755)
     # The license ships with the binary (TS binaryAssets keeps LICENSE beside
     # it; the release pipeline packages it the same way).
     shutil.copy2(root / "LICENSE", stage_dir / "LICENSE")

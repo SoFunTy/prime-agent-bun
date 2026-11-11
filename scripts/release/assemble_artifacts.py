@@ -78,6 +78,8 @@ STAGED_ENTRIES = [
     "skills",
     "LICENSE",
     "README.md",
+    # The fork's updater, staged beside the binary (`/update` runs it).
+    "install-bun.sh",
     # The bundled catalog assets (spec §3.2 layer 2): staged at the tarball
     # root beside the binary — the runtime resolves <packageDir>/<name> (the
     # TS binaryAssets ship them the same way).
@@ -297,6 +299,7 @@ def stage_tree(staging: Path, args: argparse.Namespace, stamped_version: str | N
         "skills": args.repo_root / "skills",
         "LICENSE": args.repo_root / "LICENSE",
         "README.md": args.repo_root / "README.md",
+        "install-bun.sh": args.repo_root / "scripts" / "fork" / "install-bun.sh",
     }
     if not runtime_dir.joinpath("pyproject.toml").is_file():
         fail(
@@ -396,7 +399,7 @@ def _deterministic_member(member: tarfile.TarInfo) -> tarfile.TarInfo:
     member.mtime = 0
     if member.isdir():
         member.mode = 0o755
-    elif member.name == "prime-agent" or member.name == "prime-agent.exe":
+    elif member.name in ("prime-agent", "prime-agent.exe", "install-bun.sh"):
         member.mode = 0o755
     else:
         member.mode = 0o644

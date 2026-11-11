@@ -4,3 +4,4 @@
 - Kernel-facing wording follows the running kernel: the tool name and description, busy prompts, restart and restore notices, the cell-timeout hint, the skills inventory, the compaction note, the cell-card language label, and `--help` never claim Python in a Bun session. Wire and durable identifiers (`<python_import>`, `[python-state]`, `<ipython_kernel_reset>`, `pythonCellTimeoutMs`) are unchanged.
 - `models.json` providers accept `bypassProxy: true`: that provider's host skips the process proxy (its own pooled transport) while every other provider keeps it.
 - The TUI renders `bun_repl` cells as the one-line kernel card (click to expand) instead of the generic card that dumped the raw arguments and result.
+- `/update` in the Bun build runs the fork's `install-bun.sh --update` instead of the upstream installer funnel, so it cannot replace the Bun kernel with the official release.

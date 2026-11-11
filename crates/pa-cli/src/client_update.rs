@@ -4,6 +4,12 @@
 //! failure tail becomes the error row's message. It follows the same
 //! update channel as `prime-agent update`. Both surfaces consult the
 //! same pa-core Homebrew detector before entering the installer funnel.
+//!
+//! Fork seam: the Bun build routes `/update` to its own installer
+//! (`install-bun.sh --update` beside the binary). The shared funnel would
+//! install the upstream release and replace the Bun kernel.
+
+use std::path::PathBuf;
 
 use pa_core::update::homebrew;
 use pa_core::update::installer::{self, InstallerOutput};
@@ -37,6 +43,11 @@ impl pa_tui::update_command::UpdateCommands for ClientUpdate {
                     }
                 }
                 return Err(homebrew::upgrade_instruction(kind));
+            }
+            // The Bun build owns its updater: the shared funnel below would
+            // resolve the upstream channel and install the official release.
+            if pa_types::kernel_runtime::selected() {
+                return run_fork_update().await;
             }
             let executable = std::env::current_exe().map_err(|error| error.to_string())?;
             if let Some(root) = pa_core::update::install::install_root_of(&executable) {
@@ -78,5 +89,76 @@ impl pa_tui::update_command::UpdateCommands for ClientUpdate {
                 Err(failure) => Err(failure.message),
             }
         })
+    }
+}
+
+/// The fork's installer: staged beside the binary in the release payload, or
+/// at `scripts/fork/install-bun.sh` in a source checkout.
+fn fork_installer_script() -> Option<PathBuf> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Some(dir) = std::env::var_os("PI_PACKAGE_DIR").filter(|value| !value.is_empty()) {
+        candidates.push(PathBuf::from(dir).join("install-bun.sh"));
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            candidates.push(dir.join("install-bun.sh"));
+            // A source checkout: <root>/target/release -> <root>/scripts/fork.
+            candidates.push(dir.join("../../scripts/fork/install-bun.sh"));
+            candidates.push(dir.join("scripts/fork/install-bun.sh"));
+        }
+    }
+    candidates.into_iter().find(|path| path.is_file())
+}
+
+/// Run the fork installer's `--update` and report the version it landed on.
+async fn run_fork_update() -> pa_tui::update_command::UpdateOutcome {
+    let Some(script) = fork_installer_script() else {
+        return Err(
+            "This Bun build has no install-bun.sh beside it; update it with the published \
+             installer: `install-bun.sh --update`."
+                .to_string(),
+        );
+    };
+    let output = tokio::process::Command::new("sh")
+        .arg(&script)
+        .arg("--update")
+        .stdin(std::process::Stdio::null())
+        .output()
+        .await
+        .map_err(|error| format!("could not start {}: {error}", script.display()))?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("{stdout}{stderr}"));
+    }
+    Ok(installed_version_from_output(&stdout).unwrap_or_else(|| "the latest build".to_string()))
+}
+
+/// The version the fork installer's output names: the installed line, or the
+/// already-current line.
+fn installed_version_from_output(stdout: &str) -> Option<String> {
+    stdout.lines().find_map(|line| {
+        let rest = line
+            .strip_prefix("installed prime-agent-bun ")
+            .or_else(|| line.strip_prefix("up to date: "))?;
+        rest.split_whitespace().next().map(str::to_string)
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::installed_version_from_output;
+
+    #[test]
+    fn the_installer_output_names_the_landed_version() {
+        assert_eq!(
+            installed_version_from_output("installed prime-agent-bun 0.10.3 to /tmp/x\n"),
+            Some("0.10.3".to_string())
+        );
+        assert_eq!(
+            installed_version_from_output("up to date: 0.10.3 (latest: 0.10.3)"),
+            Some("0.10.3".to_string())
+        );
+        assert_eq!(installed_version_from_output("downloading ..."), None);
     }
 }

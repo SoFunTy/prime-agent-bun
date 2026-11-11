@@ -27,6 +27,9 @@ class NativeCompatibilityTests(unittest.TestCase):
         (runtime / "src/rlm").mkdir(parents=True)
         (runtime / "src/rlm/repl.py").write_text("# runtime fixture\n")
         (runtime / "pyproject.toml").write_text('[project]\nname = "fixture"\n')
+        fork_scripts = self.root / "scripts" / "fork"
+        fork_scripts.mkdir(parents=True)
+        (fork_scripts / "install-bun.sh").write_text("#!/bin/sh\n")
         bun_runtime = self.root / "prime-agent-bun-runtime"
         (bun_runtime / "src").mkdir(parents=True)
         (bun_runtime / "package.json").write_text('{"name":"prime-agent-bun-runtime"}\n')

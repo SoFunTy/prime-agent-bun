@@ -38,6 +38,28 @@ Prime Agent is an open-source coding and research agent for general and long-run
 - The **[Recursive Language Model (RLM)](https://www.primeintellect.ai/blog/rlm)** treats context as variables (*prompt-as-a-variable*) and tools like recursive subagents as function calls (*programmatic tool /sub-agent calling*) inside a persistent REPL.
 - The **[Continual Harness](https://arxiv.org/abs/2605.09998)** stores supplemental prompts, memories, skill descriptions, and reusable subagent specifications as durable state that Prime Agent can refine through small, evidence-backed updates, local to the session by default.
 
+## Install (this fork: Bun kernel)
+
+This build runs the **Bun kernel** (`bun_repl`) instead of the Python REPL. It
+needs **Bun >= 1.3.14** (`bun --version`); there is no Python fallback.
+
+Install the newest `fork-v*` release (payload under
+`~/.local/share/prime-agent-bun`, command `~/.local/bin/prime-agent-bun`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/SoFunTy/prime-agent-bun/main/scripts/fork/install-bun.sh | sh -s -- 0.10.2
+```
+
+Or unpack a release tarball anywhere and run `./prime-agent` from it — the
+payload (kernel runtime, skills, bundled catalogs) must stay beside the binary.
+
+Update (the TUI's `/update` runs the same updater):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/SoFunTy/prime-agent-bun/main/scripts/fork/install-bun.sh | sh -s -- --check
+curl -fsSL https://raw.githubusercontent.com/SoFunTy/prime-agent-bun/main/scripts/fork/install-bun.sh | sh -s -- --update
+```
+
 ## Install
 
 Install the latest stable version with the one-command installer:
@@ -45,6 +67,9 @@ Install the latest stable version with the one-command installer:
 ```bash
 curl -fsSL https://app.primeintellect.ai/prime-agent/install.sh | sh
 ```
+
+This installs the **upstream** Python-kernel build. Use the section above for
+the Bun-kernel fork.
 
 On Windows, install from PowerShell:
 

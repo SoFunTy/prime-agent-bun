@@ -24,6 +24,14 @@ BIN_DIR="${PRIME_AGENT_BUN_BIN_DIR:-$HOME/.local/bin}"
 LAUNCHER="$BIN_DIR/prime-agent-bun"
 
 say() { printf '%s\n' "$*"; }
+
+sha256_of() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{ print $1 }'
+  else
+    shasum -a 256 "$1" | awk '{ print $1 }'
+  fi
+}
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 
 usage() {
@@ -80,7 +88,7 @@ latest_tag() {
   body="$(curl -fsSL -H 'Accept: application/vnd.github+json' \
     "${API_URL}/repos/${REPO}/releases/latest")" ||
     die "could not read the latest release of ${REPO} (has one been published?)"
-  tag="$(printf '%s' "$body" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
+  tag="$(printf '%s' "$body" | tr -d '\n' | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
   [ -n "$tag" ] || die "the latest release of ${REPO} has no tag name"
   printf '%s\n' "$tag"
 }
@@ -140,7 +148,7 @@ else
   if curl -fsSL "${BASE_URL}/${TAG}/SHA256SUMS" -o "$work/SHA256SUMS" 2>/dev/null; then
     want="$(awk -v f="$FILE_NAME" '$2 == f { print $1 }' "$work/SHA256SUMS" | head -n 1)"
     [ -n "$want" ] || die "SHA256SUMS has no row for $FILE_NAME"
-    got="$(shasum -a 256 "$file" | awk '{ print $1 }')"
+    got="$(sha256_of "$file")"
     [ "$want" = "$got" ] || die "checksum mismatch for $FILE_NAME"
     say "checksum ok"
   else

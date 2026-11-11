@@ -45,6 +45,7 @@ the declared set.
 | `crates/pa-core/src/models/{custom,registry}.rs` | The `bypassProxy` provider field (`models.json`) and its registration |
 | `crates/pa-core/src/session_engine/{tool_bridge,engine}.rs`, `engine/tests.rs` | Tool dispatch follows the active tool name |
 | `crates/pa-cli/src/prompt_command.rs` | The assembled-prompt tool list |
+| `crates/pa-cli/src/client_update.rs` | `/update` routes the Bun build to `install-bun.sh --update` |
 | `crates/pa-daemon/src/acp/wire_events.rs` | The ACP tool-call title follows the kernel |
 | `crates/pa-core/src/session_engine/{ipython_state,state_restore_notice,skills_unavailable_notice,compaction,agent_messaging}.rs` | Notice prose follows the runtime (tags preserved) |
 | `crates/pa-tui/src/tool_card/ipython.rs` | The cell card's language label follows the runtime |
