@@ -5,9 +5,6 @@
 name: Prime Inference specs
 
 on:
-  schedule:
-    - cron: '0 9 * * *'
-      timezone: America/Los_Angeles
   workflow_dispatch:
 
 permissions:
